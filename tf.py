@@ -172,7 +172,8 @@ scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
 				if (type(NNTarget.layers[i]).__name__ == "binaryChoiceActivation")]))
 
 printLambdas = tf.keras.callbacks.LambdaCallback(
-		on_epoch_end=lambda epoch,logs: print("  TF : "+str(lambdas[0][-1])+"..."+str(lambdas[-1][-1])))
+		on_epoch_end=lambda epoch,logs: print("  TF : " + \
+			str(round(lambdas[0][-1],4))+"..."+str(round(lambdas[-1][-1],4))))
 
 
 ###### MODEL TRAINING AND EVALUATION
@@ -335,7 +336,7 @@ def main1():
 		for j in range(0, nbrLambdas): lambdas[j] = []
 		train('T', augmentData, fromPreviousTraining)
 		test('T')
-		writeFactors(lambdas, i)
+		writeFactors(lambdas, currentRun)
 		NNTarget.summary()
 		#print("cleaning up...\n")
 		#resetVariables(NNTarget)
