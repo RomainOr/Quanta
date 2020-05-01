@@ -175,6 +175,7 @@ printLambdas = tf.keras.callbacks.LambdaCallback(
 		on_epoch_end=lambda epoch,logs: print("  TF : " + \
 			str(round(lambdas[0][-1],4))+"..."+str(round(lambdas[-1][-1],4))))
 
+# TODO Callback for exporting accuracy DURING training ?
 
 ###### MODEL TRAINING AND EVALUATION
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
@@ -255,11 +256,11 @@ def test(modelName):
 
 	_, accuracy = model.evaluate(testSet, testLabels)
 
-	f = open(outputDir+'/acc'+str(currentRun), 'w')
+	f = open(outputDir+'/acc'+str(currentRun)+'.txt', 'w')
 	f.write(str(accuracy)+'\n')
 	f.close()
 	print("Final testing accuracy :" +str(accuracy)+"\n")
-	return
+	return accuracy
 
 def resetVariables(model): #resets all weigths layer by layers in the model
 	# /!\ NB doesnt seem to reset the model !
@@ -313,6 +314,15 @@ def plotLambdaTraining():
 		f.write(',')
 	f.close()
 
+def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy):
+	f = open(outputDir+'expe_summary.txt', 'w')
+	export  = 'Transfer type: ' + str(tf_type) + ' ' + \
+			 str(target_task) + ' | Source model accuracy :' + \
+			 str(float(src_accuracy)) + '\nModel summary:\n'
+	f.write(export)
+	NNTarget.summary(line_length=80, print_fn=lambda x: f.write(x + '\n'))
+	f.close()
+	return
 
 def main1():
 	with tf.compat.v1.Session() as s:
@@ -337,7 +347,9 @@ def main1():
 		train('T', augmentData, fromPreviousTraining)
 		test('T')
 		writeFactors(lambdas, currentRun)
-		NNTarget.summary()
+		if currentRun == 0:
+			export_expe_summary(NNTarget, 'co-eval' if tf_coeval else 'gradual',
+								targetData, test('S'))
 		#print("cleaning up...\n")
 		#resetVariables(NNTarget)
 		#plotLambdaTraining()
