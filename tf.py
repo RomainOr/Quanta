@@ -4,6 +4,7 @@ import math as m
 import tensorflow as tf
 import numpy as np
 from tf_models import createModel
+from tf_models import learning_rates
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from binaryChoiceActivation import binaryChoiceActivation
 
@@ -25,8 +26,9 @@ trainSource = False
 targetData  = 'cifar100'
 
 #Parametres
-eta               = 2e-4	#Learning rate   
-etaTF 			  = 1e-1	#Learning rate for transferability factors 
+#eta               = 2e-4	#Learning rate   
+#etaTF 			  = 1e-1	#Learning rate for transferability factors 
+eta, etaTF = learning_rates()
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 numberOfEpochsSource  = 60
 numberOfEpochsWitness = 60
@@ -120,13 +122,13 @@ def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
 	if targetData == 'cifar100':
 		NNTarget  = tf.keras.Model(inputs=inputPlaceholderTarget, 
 						outputs=createModel(inputPlaceholderTarget, 100,
-								withTransfer=NNSourceCopy, trsf_type=tf_type, trsf_layer=trsf_layer)) 
+								sourceModel=NNSourceCopy, trsf_type=tf_type, trsf_layer=trsf_layer)) 
 		NNWitness = tf.keras.Model(inputs=inputPlaceholderTarget,
 				outputs=createModel(inputPlaceholderTarget, 100, trsf_type=tf_type, trsf_layer=trsf_layer))
 	else:
 		NNTarget  = tf.keras.Model(inputs=inputPlaceholderTarget,
 						outputs=createModel(inputPlaceholderTarget, 10,
-								withTransfer=NNSourceCopy, trsf_type=tf_type, trsf_layer=trsf_layer)) 
+								sourceModel=NNSourceCopy, trsf_type=tf_type, trsf_layer=trsf_layer)) 
 		NNWitness = tf.keras.Model(inputs=inputPlaceholderTarget,
 				outputs=createModel(inputPlaceholderTarget, 10, trsf_type=tf_type, trsf_layer=trsf_layer))
 	
@@ -145,8 +147,10 @@ print("Building source and target models")
 (NNSource, NNSourceCopy, NNTarget, NNWitness),(NotLoadSource, NotLoadTarget, NotLoadWitness) = \
 			buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness)
 
+
 ### DEBUG
-#NNTarget.summary()
+#NNSourceCopy.summary(line_length=100)
+#NNTarget.summary(line_length=100)
 #sys.exit()
 ####################
 
@@ -158,11 +162,12 @@ nbrLambdas = len([NNTarget.layers[i].get_weights() \
 ### TF Keras callbacks for retrieving lambdas
 lambdas = [[] for i in range(0, nbrLambdas)]
 
+def _sigmoid(x): return 1./(1+np.exp(-x))
 
 def lambdasMonitoring(w): 
 	weights = [np.array(w[i])[0][0] for i in range(len(w))]
 	for i in range(0, nbrLambdas):
-		lambdas[i]+= [m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
+		lambdas[i]+= [_sigmoid(weights[i][0])] #[m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
 	return
 
 scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
@@ -171,11 +176,21 @@ scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
 				for i in range(len(NNTarget.layers))        \
 				if (type(NNTarget.layers[i]).__name__ == "binaryChoiceActivation")]))
 
+def lambdas_to_str(lambdas):
+	s = ""
+	for l in range(nbrLambdas): s += str(round(lambdas[l][-1],4)) +' '
+	return s
+
 printLambdas = tf.keras.callbacks.LambdaCallback(
-		on_epoch_end=lambda epoch,logs: print("  TF : " + \
-			str(round(lambdas[0][-1],4))+"..."+str(round(lambdas[-1][-1],4))))
+		on_epoch_end=lambda epoch,logs: \
+			print("\nTF : " + lambdas_to_str(lambdas) ) ) \
+			#str(round(lambdas[0][-1],4))+"..."+str(round(lambdas[-1][-1],4))))
 
 # TODO Callback for exporting accuracy DURING training ?
+target_accuracies = []
+record_target_accuracy = tf.keras.callbacks.LambdaCallback(
+	on_epoch_end=lambda epoch,logs: target_accuracies.append(
+						NNTarget.evaluate(testSetTarget, testLabelsTarget)[1]))
 
 ###### MODEL TRAINING AND EVALUATION
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
@@ -188,7 +203,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
 		trainingLabels = trainingLabelsTarget
 		weights = "trained_models/NNTarget_w.h5"
 		noe = numberOfEpochsTarget
-		cb  = [scalarWeightCallback, printLambdas]
+		cb  = [scalarWeightCallback, printLambdas, record_target_accuracy]
 		bc  = batchSizeTarget
 		NotLoadTarget=False
 
@@ -256,7 +271,7 @@ def test(modelName):
 
 	_, accuracy = model.evaluate(testSet, testLabels)
 
-	f = open(outputDir+'/acc'+str(currentRun)+'.txt', 'w')
+	f = open(outputDir+'/acc'+str(currentRun)+str(modelName)+'.txt', 'w')
 	f.write(str(accuracy)+'\n')
 	f.close()
 	print("Final testing accuracy :" +str(accuracy)+"\n")
@@ -276,7 +291,7 @@ def resetVariables(model): #resets all weigths layer by layers in the model
 	return
 
 def writeFactors(l, e):
-	f = open(outputDir+str(e)+'.txt', 'w')
+	f = open(outputDir+'/'+str(e)+'.txt', 'w')
 	out = ""
 	for i in range(0, nbrLambdas):
 		for j in range(0, len(l[i])):
@@ -314,11 +329,13 @@ def plotLambdaTraining():
 		f.write(',')
 	f.close()
 
-def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy):
-	f = open(outputDir+'expe_summary.txt', 'w')
+def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy, target_accuracy):
+	f = open(outputDir+'/expe_summary.txt', 'w')
 	export  = 'Transfer type: ' + str(tf_type) + ' ' + \
-			 str(target_task) + ' | Source model accuracy :' + \
-			 str(float(src_accuracy)) + '\nModel summary:\n'
+			 str(target_task) + '\nSource model accuracy :' + \
+			 str(float(src_accuracy)) + \
+			 '\nTarget model accuracy: ' + str(target_accuracy) + \
+			 '\nTarget model summary:\n'
 	f.write(export)
 	NNTarget.summary(line_length=80, print_fn=lambda x: f.write(x + '\n'))
 	f.close()
@@ -345,11 +362,14 @@ def main1():
 
 		for j in range(0, nbrLambdas): lambdas[j] = []
 		train('T', augmentData, fromPreviousTraining)
-		test('T')
 		writeFactors(lambdas, currentRun)
 		if currentRun == 0:
 			export_expe_summary(NNTarget, 'co-eval' if tf_coeval else 'gradual',
-								targetData, test('S'))
+								targetData, test('S'), test('T'))
+		
+		f = open(outputDir+'all_accuracies.txt','w')
+		for i in range(0, len(target_accuracies)): f.write(str(target_accuracies[i])+'\n')
+		f.close()
 		#print("cleaning up...\n")
 		#resetVariables(NNTarget)
 		#plotLambdaTraining()

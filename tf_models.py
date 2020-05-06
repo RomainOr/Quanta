@@ -2,32 +2,34 @@ import tensorflow as tf
 from sys import exit
 from binaryChoiceActivation import binaryChoiceActivation
 
-v = 2.95
+v = 3.5#2.95
 initScalarValue = [v/2, -v/2] #softmax(2.94, 0) ~ (0.95, 0.05) softmax(4.59, 0) ~ (0.99, 0.01)
 
-eta               = 2e-4	#Learning rate   
-etaTF 			  = 1e-1	#Learning rate for transferability factors 
+etaTF 			  = 2e-2 #1e-1	#Learning rate for transferability factors 
+eta               = 1e-3 #2e-4	#Learning rate   
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 
-def createModel(placeholder, outputSize, withTransfer=None, trsf_type='gradual', trsf_layer=None):
+def learning_rates(): return eta, etaTF
+
+def createModel(placeholder, outputSize, sourceModel=None, trsf_type='gradual', trsf_layer=None):
 	if trsf_type == 'gradual' and trsf_layer is None: exit()
 	if trsf_type == 'gradual':
-		return createModel_gradual(placeholder, outputSize, trsf_layer, withTransfer)
-	return createModel_coeval(placeholder, outputSize, withTransfer)
+		return createModel_gradual(placeholder, outputSize, trsf_layer, sourceModel)
+	return createModel_coeval(placeholder, outputSize, sourceModel)
 
 ####################################################################
 ## Convblock and template model for GRADUAL eval of transferability
 ####################################################################
 
-def convBlock_gradual(pInput, size, trsf_layer, transferLayers=[]):
+def convBlock_gradual(pInput, size, trsf_layer, transferredLayers=[]):
     x = pInput
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
 
     if (trsf_layer == 0 or trsf_layer == 2 or trsf_layer == 4):
-        if (transferLayers != []):
+        if (transferredLayers != []):
             # Comment to NOT transfert
             x = binaryChoiceActivation(
-                'elu', initScalarValue, etaTF / eta)([transferLayers[0], x])
+                'elu', initScalarValue, etaTF / eta)([transferredLayers[0], x])
         else:
             x = tf.keras.layers.Activation('elu')(x)  # Comment to NOT transfert
     else:
@@ -37,10 +39,10 @@ def convBlock_gradual(pInput, size, trsf_layer, transferLayers=[]):
 
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
     if (trsf_layer == 1 or trsf_layer == 3 or trsf_layer == 5):
-        if (transferLayers != []):
+        if (transferredLayers != []):
             # Comment to NOT transfert
             x = binaryChoiceActivation(
-                'elu', initScalarValue, etaTF / eta)([transferLayers[1], x])
+                'elu', initScalarValue, etaTF / eta)([transferredLayers[1], x])
         else:
             x = tf.keras.layers.Activation('elu')(x)  # Comment to NOT transfert
     else:
@@ -51,32 +53,32 @@ def convBlock_gradual(pInput, size, trsf_layer, transferLayers=[]):
     x = tf.keras.layers.Dropout(0.3)(x)
     return x
 
-def createModel_gradual(placeholder, outputSize, trsf_layer, withTransfer=None):
-    lay = []
-    if (withTransfer != None):
-        lay = [withTransfer.layers[i].output for i in range(len(withTransfer.layers)) if type(
-            withTransfer.layers[i]).__name__ in ['Conv2D', 'Dense']]
+def createModel_gradual(placeholder, outputSize, trsf_layer, sourceModel=None):
+    transferredLayers = []
+    if (sourceModel != None):
+        transferredLayers = [sourceModel.layers[i].output for i in range(len(sourceModel.layers)) if type(
+            sourceModel.layers[i]).__name__ in ['Conv2D', 'Dense']]
     x = placeholder
 
-    if (lay != [] and (trsf_layer == 0 or trsf_layer == 1)):
-        x = convBlock_gradual(x, 64, trsf_layer, [lay[0], lay[1]])
+    if (transferredLayers != [] and (trsf_layer == 0 or trsf_layer == 1)):
+        x = convBlock_gradual(x, 64, trsf_layer, [transferredLayers[0], transferredLayers[1]])
     else:
         x = convBlock_gradual(x, 64, trsf_layer)
 
-    if (lay != [] and (trsf_layer == 2 or trsf_layer == 3)):
-        x = convBlock_gradual(x, 128, trsf_layer, [lay[2], lay[3]])
+    if (transferredLayers != [] and (trsf_layer == 2 or trsf_layer == 3)):
+        x = convBlock_gradual(x, 128, trsf_layer, [transferredLayers[2], transferredLayers[3]])
     else:
         x = convBlock_gradual(x, 128, trsf_layer)
 
-    if (lay != [] and (trsf_layer == 4 or trsf_layer == 5)):
-        x = convBlock_gradual(x, 512, trsf_layer, [lay[4], lay[5]])
+    if (transferredLayers != [] and (trsf_layer == 4 or trsf_layer == 5)):
+        x = convBlock_gradual(x, 512, trsf_layer, [transferredLayers[4], transferredLayers[5]])
     x = convBlock_gradual(x, 512, trsf_layer)
 
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(2048)(x)
-    if (lay != [] and trsf_layer == 6):
+    if (transferredLayers != [] and trsf_layer == 6):
         x = binaryChoiceActivation(
-            'elu', initScalarValue, etaTF / eta)([lay[6], x])
+            'elu', initScalarValue, etaTF / eta)([transferredLayers[6], x])
     else:
         x = tf.keras.layers.Activation('elu')(x)
 
@@ -89,17 +91,17 @@ def createModel_gradual(placeholder, outputSize, trsf_layer, withTransfer=None):
 ####################################################################
 ## Convblock and template model for co-evaluation of transferability
 ####################################################################
-def convBlock_coeval(pInput, size, transferLayers=[]):
+def convBlock_coeval(pInput, size, transferredLayers=[], layers_num=None):
 	x = pInput
 	x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-	if (transferLayers != []): x = \
-		binaryChoiceActivation('elu', initScalarValue, etaTF/eta)([transferLayers[0], x])
+	if (transferredLayers != [] and layers_num is not None): x = \
+		binaryChoiceActivation('elu', initScalarValue, etaTF/eta, layers_num[0])([transferredLayers[0], x])
 	else: x = tf.keras.layers.Activation('elu')(x)
 	x = tf.keras.layers.BatchNormalization()(x)
 
 	x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-	if (transferLayers != []): x = \
-		binaryChoiceActivation('elu', initScalarValue, etaTF/eta)([transferLayers[1], x])
+	if (transferredLayers != [] and layers_num is not None): x = \
+		binaryChoiceActivation('elu', initScalarValue, etaTF/eta, layers_num[1])([transferredLayers[1], x])
 	else: x = tf.keras.layers.Activation('elu')(x)
 	x = tf.keras.layers.BatchNormalization()(x)
 	
@@ -108,29 +110,36 @@ def convBlock_coeval(pInput, size, transferLayers=[]):
 	return x
 
 
-def createModel_coeval(placeholder, outputSize, withTransfer=None):
-	lay = []
-	if (withTransfer != None):
-		lay = [withTransfer.layers[i].output     \
-		for i in range(len(withTransfer.layers)) \
-		if type(withTransfer.layers[i]).__name__ in ['Conv2D', 'Dense']]	
+def createModel_coeval(placeholder, outputSize, sourceModel=None):
+	transferredLayers = []
+	if (sourceModel != None):
+		transferredLayers = [sourceModel.layers[i].output     \
+		for i in range(len(sourceModel.layers)) \
+		if type(sourceModel.layers[i]).__name__ in ['Conv2D', 'Dense']]	
+	
 	x = placeholder
-	if lay != []: x = convBlock_coeval(x, 64, [lay[0], lay[1]])
+
+	if transferredLayers != []: 
+		x = convBlock_coeval(x, 64, [transferredLayers[0], transferredLayers[1]], layers_num=(0,1))
 	else : x = convBlock_coeval(x, 64)
 	
-	if lay != []: x = convBlock_coeval(x, 128, [lay[2], lay[3]])
+	if transferredLayers != []:
+		x = convBlock_coeval(x, 128, [transferredLayers[2], transferredLayers[3]], layers_num=(2,3))
 	else : x = convBlock_coeval(x, 128)
 	
-	if lay != []: x = convBlock_coeval(x, 512, [lay[4], lay[5]])
+	if transferredLayers != []:
+		x = convBlock_coeval(x, 512, [transferredLayers[4], transferredLayers[5]], layers_num=(4,5))
 	else : x = convBlock_coeval(x, 512)
 
 	x = tf.keras.layers.Flatten()(x)
 	x = tf.keras.layers.Dense(2048)(x)
-	if lay != []:  x = binaryChoiceActivation('elu', initScalarValue, etaTF/eta)([lay[6], x])
+	if transferredLayers != []:
+		x = binaryChoiceActivation('elu', initScalarValue, etaTF/eta, layer_num=6)\
+								  ([transferredLayers[6], x])
 	else : x = tf.keras.layers.Activation('elu')(x)
 	x = tf.keras.layers.Dropout(0.5)(x)
-	
 
 	x = tf.keras.layers.Dense(outputSize, activation='softmax')(x)
+
 	return x
 
