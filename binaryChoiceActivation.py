@@ -13,6 +13,8 @@ from tensorflow import float32
 
 from numpy import exp
 
+import tensorflow as tf
+
 L = 6 # total number of layers 0..6
 modifiers = [exp(-l)*1000. for l in range(0,7)]
 
@@ -22,6 +24,7 @@ class binaryChoiceActivation(_Merge):
 		self.supports_masking = True
 		self.activation = activations.get(activation)
 		self.initScalarWeightValue = initScalarWeightValue
+		# lrm: gradient boost for the lambdas
 		self.lrm = learningRateModifier if layer_num is None \
 							else ( (1./1.) * learningRateModifier ) # condition to use modifiers
 		print('Learning rate modifier :', self.lrm)
@@ -42,17 +45,21 @@ class binaryChoiceActivation(_Merge):
 			return x, grad
 		return pumpLambdaGradient
 
-
+	#############
+	# Merge the outputs of transferred source layer l and target layer l
 	def _merge_function(self, inputs):  
-		lambdaScalar = split(self.getGradientPumpFunction()(activations.get('tanh')(self.kernel)), 2, -1)
+		"""
+		Version 1 : tanh
+		Version 2 : softmax
+		"""
+		lambdaScalar = split(self.getGradientPumpFunction()(activations.get('softmax')(self.kernel)), 2, -1)
 		lambdaScalar = [reshape(lambdaScalar[i], []) for i in range(len(lambdaScalar))]
 		# TF v.2: A_T = f(Z_S*Lambda_S + Z_T*lambda_T)
-		#return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]), 
-		#	scalar_mul(lambdaScalar[1], inputs[1])))
+		return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]), 
+			scalar_mul(lambdaScalar[1], inputs[1])))
 		#####
 		# TF v.1 (first concept from Amarin
 		# A_T = f(Z_S*Lambda_S + (1-Lambda_S)*Z_T)
-		return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]),
-			scalar_mul( (1-lambdaScalar[0]), inputs[1] )))
-
+		#return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]),
+		#	scalar_mul( (1-lambdaScalar[0]), inputs[1] )))
 

@@ -8,7 +8,7 @@ from tf_models import learning_rates
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from binaryChoiceActivation import binaryChoiceActivation
 
-tf.compat.v1.disable_eager_execution()
+#tf.compat.v1.disable_eager_execution()
 
 # Run 1st run for gradual evaluation with layer 5:
 # ./start_expe.sh -o outputDir --co_eval=false --current_run=0 --layer=5
@@ -32,13 +32,21 @@ eta, etaTF = learning_rates()
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 numberOfEpochsSource  = 60
 numberOfEpochsWitness = 60
-numberOfEpochsTarget  = 60
+numberOfEpochsTarget  = 120#60
 batchSizeSource		  = 32	
 batchSizeTarget		  = 32	
 
 optimizer	= tf.keras.optimizers.Adam(eta, decay=etaDecay)	#Optimizer for gradient descent
 loss		= 'categorical_crossentropy'	#Loss giving gradients
-accuracy	= ['accuracy']					#Metric for accuracy
+#accuracy	= ['accuracy']					#Metric for accuracy
+metrics     = ['accuracy', \
+				tf.keras.metrics.Precision(),\
+				tf.keras.metrics.Recall(),   \
+				tf.keras.metrics.FalsePositives(), \
+				tf.keras.metrics.FalseNegatives(), \
+				tf.keras.metrics.TruePositives(),  \
+				tf.keras.metrics.TrueNegatives(),  \
+				tf.keras.metrics.TopKCategoricalAccuracy(k=3)]
 
 augmentData 		= True	 #Flow  data augmentation during training
 fromPreviousTraining= False	 #False for training from scratch, True to start from previous save
@@ -48,6 +56,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'	#Less verbosity
 
 
 ######## INPUT DATA
+print("Loading Data")
 (trainingSetSource, trainingLabelsSource),(testSetSource, testLabelsSource) = \
 		tf.keras.datasets.cifar10.load_data()
 if targetData == 'cifar100':
@@ -57,10 +66,11 @@ else:
 	(trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
 		tf.keras.datasets.cifar10.load_data()
 
+print("Normalizing data, creating one-hots")
 ## Normalize data and create one hots
-trainingSetSource = trainingSetSource/255.
+trainingSetSource    = trainingSetSource/255.
 trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
-testSetSource = testSetSource/255.
+testSetSource    = testSetSource/255.
 testLabelsSource = tf.keras.utils.to_categorical(testLabelsSource, 10)
 
 trainingSetTarget = trainingSetTarget/255.
@@ -73,7 +83,7 @@ testSetTarget = testSetTarget/255.
 if targetData == 'cifar100':
 	testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
 else:
-	trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
+	testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 10)
 
 inputPlaceholderSource = tf.keras.Input([32, 32, 3], name='inputHolderSource')
 inputPlaceholderTarget = tf.keras.Input([32, 32, 3], name='inputHolderTarget')
@@ -133,9 +143,9 @@ def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
 				outputs=createModel(inputPlaceholderTarget, 10, trsf_type=tf_type, trsf_layer=trsf_layer))
 	
 	for l in NNSourceCopy.layers: l.trainable=False
-	NNSource.compile(optimizer, loss, accuracy)
-	NNTarget.compile(optimizer, loss, accuracy)
-	NNWitness.compile(optimizer, loss, accuracy)
+	NNSource.compile(optimizer, loss, metrics)
+	NNTarget.compile(optimizer, loss, metrics)
+	NNWitness.compile(optimizer, loss, metrics)
 	
 	# [Anne] ???
 	NotLoadSource  = True
@@ -158,20 +168,29 @@ nbrLambdas = len([NNTarget.layers[i].get_weights() \
 					for i in range(len(NNTarget.layers)) \
 					if (type(NNTarget.layers[i]).__name__ == "binaryChoiceActivation")])
 
-
+############
 ### TF Keras callbacks for retrieving lambdas
 lambdas = [[] for i in range(0, nbrLambdas)]
+raw_lambdas = [[] for i in range(0, nbrLambdas)]
 
 def _sigmoid(x): return 1./(1+np.exp(-x))
 
 def lambdasMonitoring(w): 
 	weights = [np.array(w[i])[0][0] for i in range(len(w))]
 	for i in range(0, nbrLambdas):
-		lambdas[i]+= [_sigmoid(weights[i][0])] #[m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
+		lambdas[i] += [_sigmoid(weights[i][0])] #[m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
+		raw_lambdas[i] += [weights[i][0]]
+	return
+
+def lambdasMonitoring_VERSION2(w): 
+	weights = [np.array(w[i])[0][0] for i in range(len(w))]
+	for i in range(0, nbrLambdas):
+		lambdas[i] += [m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
+		raw_lambdas[i] += [weights[i][0]]
 	return
 
 scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
-		on_epoch_end=lambda epoch,logs: lambdasMonitoring(
+		on_epoch_end=lambda epoch,logs: lambdasMonitoring_VERSION2(
 				[NNTarget.layers[i].get_weights()           \
 				for i in range(len(NNTarget.layers))        \
 				if (type(NNTarget.layers[i]).__name__ == "binaryChoiceActivation")]))
@@ -184,26 +203,44 @@ def lambdas_to_str(lambdas):
 printLambdas = tf.keras.callbacks.LambdaCallback(
 		on_epoch_end=lambda epoch,logs: \
 			print("\nTF : " + lambdas_to_str(lambdas) ) ) \
-			#str(round(lambdas[0][-1],4))+"..."+str(round(lambdas[-1][-1],4))))
 
-# TODO Callback for exporting accuracy DURING training ?
-target_accuracies = []
-record_target_accuracy = tf.keras.callbacks.LambdaCallback(
-	on_epoch_end=lambda epoch,logs: target_accuracies.append(
-						NNTarget.evaluate(testSetTarget, testLabelsTarget)[1]))
+########
+# Helper callbacks (for debugging and or understanding)
+printRawLambdas = tf.keras.callbacks.LambdaCallback(
+		on_epoch_end=lambda epoch,logs: \
+			print('Raw lambdas: ' + lambdas_to_str(raw_lambdas), ' '))
+
+def print_BCA_layers(model):
+	s= ""
+	for l in range (len(model.layers)):
+		if (type(model.layers[l]).__name__ == "binaryChoiceActivation"):
+			s += 'Layer ' + str(l) + ' ' + str(model.layers[l].get_weights()) + '\n'
+	return s
+
+print_raw_BCA_weights = tf.keras.callbacks.LambdaCallback(
+		on_epoch_begin=lambda epoch,logs: \
+			print('BCA parameters:\n', print_BCA_layers(NNTarget)))
+
+#########
+# Callback for exporting accuracy DURING training ?
+target_metrics = []
+record_target_metrics = tf.keras.callbacks.LambdaCallback(
+	on_epoch_end=lambda epoch,logs: target_metrics.append(
+						NNTarget.evaluate(testSetTarget, testLabelsTarget)))
 
 ###### MODEL TRAINING AND EVALUATION
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
 	#modelName : T for target, S for source, W for witness
 	if (modelName == 'T'):
 		print("Training target model...")
-		NNSourceCopy.load_weights("trained_models/NNSource_w.h5")
+		NNSourceCopy.load_weights('trained_models/NNSource_w.h5')
 		model = NNTarget
 		trainingSet    = trainingSetTarget
 		trainingLabels = trainingLabelsTarget
 		weights = "trained_models/NNTarget_w.h5"
 		noe = numberOfEpochsTarget
-		cb  = [scalarWeightCallback, printLambdas, record_target_accuracy]
+		cb  = [scalarWeightCallback, printLambdas, printRawLambdas, \
+			   record_target_metrics] #, print_raw_BCA_weights]
 		bc  = batchSizeTarget
 		NotLoadTarget=False
 
@@ -269,13 +306,13 @@ def test(modelName):
 
 	if snl: model.load_weights(weights)
 
-	_, accuracy = model.evaluate(testSet, testLabels)
+	metrics = model.evaluate(testSet, testLabels)
 
-	f = open(outputDir+'/acc'+str(currentRun)+str(modelName)+'.txt', 'w')
-	f.write(str(accuracy)+'\n')
+	f = open(outputDir+'/metrics'+str(currentRun)+str(modelName)+'.txt', 'w')
+	f.write(str(metrics)+'\n')
 	f.close()
-	print("Final testing accuracy :" +str(accuracy)+"\n")
-	return accuracy
+	print("Final testing accuracy :" +str(metrics[1])+"\n")
+	return metrics[1] # accuracy
 
 def resetVariables(model): #resets all weigths layer by layers in the model
 	# /!\ NB doesnt seem to reset the model !
@@ -290,8 +327,9 @@ def resetVariables(model): #resets all weigths layer by layers in the model
 			buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness)
 	return
 
-def writeFactors(l, e):
-	f = open(outputDir+'/'+str(e)+'.txt', 'w')
+def writeFactors(l, e, raw=False):
+	if raw is True: f = open(outputDir+'/'+str(e)+'_raw.txt', 'w')
+	else:           f = open(outputDir+'/'+str(e)+'.txt', 'w')
 	out = ""
 	for i in range(0, nbrLambdas):
 		for j in range(0, len(l[i])):
@@ -300,37 +338,8 @@ def writeFactors(l, e):
 	f.write(out)
 	f.close()
 
-def plotLambdaTraining():
-	l = []
-	print(int(len(trainingSetTarget)/batchSizeTarget/10)*numberOfEpochsTarget)
-	for j in range(0, nbrLambdas): 
-		l += [[]]
-		for k in range(0, int(len(trainingSetTarget)/batchSizeTarget/10)*numberOfEpochsTarget):
-			l[j] += [[]]
-			for i in range(0, 30):
-				l[j][k] += [0.0] 
-			
-	for i in range(0, 30):	
-		f = open(outputDir+str(i)+'.txt', 'r')
-		a = f.read().split(',')
-		for j in range(0, nbrLambdas): 
-			k = 0
-			for TF in a[:-1][j].split():
-				l[j][k][i] = float(TF)
-				k+=1
-				
-	f = open(outputDir+str(k)+'.txt', 'w')
-	for i in range(0, nbrLambdas):
-		print(np.mean(l[i][-1]))
-		print(np.std(l[i][-1], -1))
-		for j in range (0, len(l[i])):
-			f.write(str(np.mean(l[i][j])))
-			f.write(' ')
-		f.write(',')
-	f.close()
-
 def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy, target_accuracy):
-	f = open(outputDir+'/expe_summary.txt', 'w')
+	f = open(outputDir+'/expe_summary.txt', 'a')
 	export  = 'Transfer type: ' + str(tf_type) + ' ' + \
 			 str(target_task) + '\nSource model accuracy :' + \
 			 str(float(src_accuracy)) + \
@@ -342,10 +351,10 @@ def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy, target_acc
 	return
 
 def main1():
-	with tf.compat.v1.Session() as s:
+	#with tf.compat.v1.Session() as s:
 
-		s.run(tf.compat.v1.global_variables_initializer())
-		s.run(tf.compat.v1.local_variables_initializer())
+		#s.run(tf.compat.v1.global_variables_initializer())
+		#s.run(tf.compat.v1.local_variables_initializer())
 	
 		#NNTarget.summary()
 
@@ -355,24 +364,27 @@ def main1():
 		#train('W', augmentData, fromPreviousTraining)
 		#test('W') #0.5628
 
-		print('Creating output directory')
-		if not os.path.exists(outputDir): os.makedirs(outputDir)	
+	print("Target task: ", targetData)
 
-		print('Starting run ', currentRun)
+	print('Creating output directory')
+	if not os.path.exists(outputDir): os.makedirs(outputDir)	
 
-		for j in range(0, nbrLambdas): lambdas[j] = []
-		train('T', augmentData, fromPreviousTraining)
-		writeFactors(lambdas, currentRun)
-		if currentRun == 0:
-			export_expe_summary(NNTarget, 'co-eval' if tf_coeval else 'gradual',
-								targetData, test('S'), test('T'))
+	print('Starting run ', currentRun)
+
+	for j in range(0, nbrLambdas): lambdas[j] = []
+	train('T', augmentData, fromPreviousTraining)
+	writeFactors(lambdas, currentRun, raw=False)
+	writeFactors(raw_lambdas, currentRun, raw=True)
+	if currentRun == 0:
+		export_expe_summary(NNTarget, 'co-eval' if tf_coeval else 'gradual',
+							targetData, test('S'), test('T'))
 		
-		f = open(outputDir+'all_accuracies.txt','w')
-		for i in range(0, len(target_accuracies)): f.write(str(target_accuracies[i])+'\n')
-		f.close()
-		#print("cleaning up...\n")
-		#resetVariables(NNTarget)
-		#plotLambdaTraining()
+	f = open(outputDir+'/all_target_metrics.txt','a')
+	for i in range(0, len(target_metrics)): f.write(str(target_metrics[i])+'\n')
+	f.close()
+	#print("cleaning up...\n")
+	#resetVariables(NNTarget)
+	#plotLambdaTraining()
 	return
 
 if __name__=="__main__":
