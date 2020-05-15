@@ -26,13 +26,11 @@ trainSource = False
 targetData  = 'cifar100'
 
 #Parametres
-#eta               = 2e-4	#Learning rate   
-#etaTF 			  = 1e-1	#Learning rate for transferability factors 
 eta, etaTF = learning_rates()
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 numberOfEpochsSource  = 60
 numberOfEpochsWitness = 60
-numberOfEpochsTarget  = 120#60
+numberOfEpochsTarget  = 60
 batchSizeSource		  = 32	
 batchSizeTarget		  = 32	
 
@@ -340,7 +338,9 @@ def writeFactors(l, e, raw=False):
 
 def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy, target_accuracy):
 	f = open(outputDir+'/expe_summary.txt', 'a')
-	export  = 'Transfer type: ' + str(tf_type) + ' ' + \
+	export  = 'Target task: ' + targetData
+	export += 'LRM: ' + str(etaTF/eta) + '\n'
+	export += 'Transfer type: ' + str(tf_type) + ' ' + \
 			 str(target_task) + '\nSource model accuracy :' + \
 			 str(float(src_accuracy)) + \
 			 '\nTarget model accuracy: ' + str(target_accuracy) + \
@@ -379,7 +379,7 @@ def main1():
 		export_expe_summary(NNTarget, 'co-eval' if tf_coeval else 'gradual',
 							targetData, test('S'), test('T'))
 		
-	f = open(outputDir+'/all_target_metrics.txt','a')
+	f = open(outputDir+'/all_target_metrics_' + str(currentRun) + '.txt','a')
 	for i in range(0, len(target_metrics)): f.write(str(target_metrics[i])+'\n')
 	f.close()
 	#print("cleaning up...\n")

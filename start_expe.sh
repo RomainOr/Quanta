@@ -52,7 +52,10 @@ if [ "${CURRENTRUN}" == "-1" ]; then
 	exit 0
 fi
 
-exit 42
+#echo "Layer " ${LAYER} " Run number " $run
+#python3 tf.py ${OUTDIR} ${COEVAL} ${CURRENTRUN} ${LAYER}
+
+#exit 42
 
 for run in {0..29}
 do

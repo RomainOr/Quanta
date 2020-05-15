@@ -2,10 +2,11 @@ import tensorflow as tf
 from sys import exit
 from binaryChoiceActivation import binaryChoiceActivation
 
-v = 2.95 # v1: 3.5    v2: 2.95
+v = 0.02 # v1: 3.5    v2: 2.95
 initScalarValue = [v/2, -v/2] #softmax(1.475, -1.475) ~ (0.95, 0.049)
 
-etaTF 			  = 1e-1 # v1 boost 5e-2 # v2 1e-1	#Learning rate for transferability factors 
+etaTF 			  = 1e-5 # v1 boost 5e-2 # v2 1e-1	#Learning rate for transferability factors 
+
 eta               = 2e-4 # v1 boost 1e-3 # v2 2e-4	#Learning rate   
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 
