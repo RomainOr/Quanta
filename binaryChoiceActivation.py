@@ -49,17 +49,17 @@ class binaryChoiceActivation(_Merge):
 	# Merge the outputs of transferred source layer l and target layer l
 	def _merge_function(self, inputs):  
 		"""
-		Version 1 : tanh
+		Version 1 : tanh/sigmoid
 		Version 2 : softmax
 		"""
-		lambdaScalar = split(self.getGradientPumpFunction()(activations.get('softmax')(self.kernel)), 2, -1)
+		lambdaScalar = split(self.getGradientPumpFunction()(activations.get('sigmoid')(self.kernel)), 2, -1)
 		lambdaScalar = [reshape(lambdaScalar[i], []) for i in range(len(lambdaScalar))]
 		# TF v.2: A_T = f(Z_S*Lambda_S + Z_T*lambda_T)
-		return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]), 
-			scalar_mul(lambdaScalar[1], inputs[1])))
+		#return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]), 
+		#	scalar_mul(lambdaScalar[1], inputs[1])))
 		#####
 		# TF v.1 (first concept from Amarin
 		# A_T = f(Z_S*Lambda_S + (1-Lambda_S)*Z_T)
-		#return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]),
-		#	scalar_mul( (1-lambdaScalar[0]), inputs[1] )))
+		return self.activation(add(scalar_mul(lambdaScalar[0], inputs[0]),
+			scalar_mul( (1-lambdaScalar[0]), inputs[1] )))
 

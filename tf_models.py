@@ -11,6 +11,7 @@ eta               = 2e-4 # v1 boost 1e-3 # v2 2e-4	#Learning rate
 etaDecay	 	  = 1e-6	#lr decay for optimizer
 
 def learning_rates(): return eta, etaTF
+def get_vinit(): return v
 
 def createModel(placeholder, outputSize, sourceModel=None, trsf_type='gradual', trsf_layer=None):
 	if trsf_type == 'gradual' and trsf_layer is None: exit()

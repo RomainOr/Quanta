@@ -5,6 +5,7 @@ import tensorflow as tf
 import numpy as np
 from tf_models import createModel
 from tf_models import learning_rates
+from tf_models import get_vinit
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from binaryChoiceActivation import binaryChoiceActivation
 
@@ -176,7 +177,7 @@ def _sigmoid(x): return 1./(1+np.exp(-x))
 def lambdasMonitoring(w): 
 	weights = [np.array(w[i])[0][0] for i in range(len(w))]
 	for i in range(0, nbrLambdas):
-		lambdas[i] += [_sigmoid(weights[i][0])] #[m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
+		lambdas[i] += [_sigmoid(weights[i][0])]
 		raw_lambdas[i] += [weights[i][0]]
 	return
 
@@ -188,7 +189,7 @@ def lambdasMonitoring_VERSION2(w):
 	return
 
 scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
-		on_epoch_end=lambda epoch,logs: lambdasMonitoring_VERSION2(
+		on_epoch_end=lambda epoch,logs: lambdasMonitoring(    #_VERSION2(
 				[NNTarget.layers[i].get_weights()           \
 				for i in range(len(NNTarget.layers))        \
 				if (type(NNTarget.layers[i]).__name__ == "binaryChoiceActivation")]))
@@ -338,9 +339,10 @@ def writeFactors(l, e, raw=False):
 
 def export_expe_summary(NNTarget, tf_type, target_task, src_accuracy, target_accuracy):
 	f = open(outputDir+'/expe_summary.txt', 'a')
-	export  = 'Target task: ' + targetData
-	export += 'LRM: ' + str(etaTF/eta) + '\n'
-	export += 'Transfer type: ' + str(tf_type) + ' ' + \
+	export  = 'Target task: ' + targetData + '\n'
+	export += 'LRM: ' + str(etaTF/eta) + '(Eta: '+str(eta)+' EtaTF: '+str(etaTF)+ ')\n'
+	export += 'v init: ' + str(get_vinit()) + '\n'
+	export += 'Transfer type: ' + str(tf_type) + '\n' + \
 			 str(target_task) + '\nSource model accuracy :' + \
 			 str(float(src_accuracy)) + \
 			 '\nTarget model accuracy: ' + str(target_accuracy) + \
