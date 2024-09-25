@@ -1,68 +1,63 @@
+#!/bin/sh
 
-#echo $0 # script name
-#echo $1 # layer
-#echo $2 # outputdir
-
-# USAGE
-# start_expe.sh layerNumber outputDir
-
-total_run=0
-
+# Parsing all arguments
+# WIP : Manage exceptions and defaults
 for i in "$@"
 do
 case $i in
     -o=*|--outdir=*)
     OUTDIR="${i#*=}"
-    shift # past argument=value
+    shift
     ;;
-    -c=*|--coeval=*)
-    COEVAL="${i#*=}"
-    shift # past argument=value
-    ;;
-    -r=*|--currentRun=*)
-    CURRENTRUN="${i#*=}"
-    shift # past argument=value
+    -r=*|--repeat=*)
+    REPEAT="${i#*=}"
+    shift
     ;;
     -l=*|--layer=*)
     LAYER="${i#*=}"
-    shift # past argument=value
+    shift
+    ;;
+    -t=*|--targetTask=*)
+    TASK="${i#*=}"
+    shift
+    ;;
+    -s=*|--seed=*)
+    SEED="${i#*=}"
+    shift
     ;;
     -h|--help)
-    echo "Usage: ./start_expe -o|--outdir=outputdir -c|--coeval=false -r|--currentRun=29 -l|--layer=5"
+    echo "Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 -s|--seed=0"
 	exit 1
-    shift # past argument=value
-    ;;
-    --default)
-    DEFAULT=YES
-    shift # past argument with no value
+    shift
     ;;
     *)
-          # unknown option
     ;;
 esac
 done
-echo 'Output directory: ' ${OUTDIR}
-echo 'Running simultaneous transfer: ' ${COEVAL}
-echo 'Current run (out of 30): ' ${CURRENTRUN}
-echo 'Layer (if gradual eval): ' ${LAYER}
 
-if [ "${CURRENTRUN}" == "-1" ]; then
-	echo "Layer " ${LAYER} " Run number " $run
-	python3 tf.py ${OUTDIR} ${COEVAL} 0 ${LAYER}
+# Echoing arguments to recap the user what he has typed
+echo 'Script parameters : '
+echo '\t Output directory: ' ${OUTDIR}
+echo '\t Running simultaneous transfer: ' ${COEVAL}
+echo '\t Number of repeat: ' ${REPEAT}
+echo '\t Layer: ' ${LAYER}
+echo '\t Target task: ' ${TASK}
+echo '\t Seed : ' ${SEED} '\n'
+
+echo 'Starting run(s) : '
+
+if [ "${REPEAT}" == "-1" ]; then
+	echo "\n\t Layer " ${LAYER} " - Run number 1 \n"
+	python3 quanta.py ${OUTDIR} 0 ${LAYER} ${TASK} ${SEED}
 	exit 0
 fi
 
-#echo "Layer " ${LAYER} " Run number " $run
-#python3 tf.py ${OUTDIR} ${COEVAL} ${CURRENTRUN} ${LAYER}
-
-#exit 42
-
-for run in {0..29}
+total_run=0
+for run in $(seq 1 $REPEAT)
 do
-	echo "Layer " ${LAYER} " Run number " $run
-	((total_run++))  
-	python3 tf.py ${OUTDIR} ${COEVAL} $run ${LAYER}
+	echo "\n\t Layer " ${LAYER} " - Run number " $run "\n"
+	((total_run++))
+	python3 quanta.py ${OUTDIR} $run ${LAYER} ${TASK} ${SEED}
 done
 
-
-echo " ++++++++ REPEAT BASH SCRIPT DONE --- Layer $layer   Total runs $total_run"
+echo "++++++++ REPEAT BASH SCRIPT DONE --- Layer ${LAYER} -- Total runs $total_run"
