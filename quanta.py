@@ -1,15 +1,29 @@
 import sys
 import os
-import math as m
-import tensorflow as tf
-import numpy as np
+
+#################################################
+############ Tensforflow verbosity ##############
+#################################################
+
+# You can also adjust the verbosity by changing the value of TF_CPP_MIN_LOG_LEVEL:
+#   0 = all messages are logged (default behavior)
+#   1 = INFO messages are not printed
+#   2 = INFO and WARNING messages are not printed
+#   3 = INFO, WARNING, and ERROR messages are not printed
+# Make sure to put those lines before import tensorflow to be effective.
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    #Less verbosity
+
 import random
+import math as m
+import numpy as np
+import tensorflow as tf
+
 
 #################################################
 ##### Set up Determinism or not with QUANTA #####
 #################################################
 
-SEED = sys.argv[5]
+SEED = int(sys.argv[5])
 def set_seeds(seed=SEED):
     os.environ['PYTHONHASHSEED'] = str(seed)
     random.seed(seed)
@@ -24,12 +38,17 @@ def set_global_determinism(seed=SEED):
 if SEED is not None and SEED > 0:
     set_global_determinism(seed=SEED)
 
+
+#################################################
+####### Managing arguments and parameters #######
+#################################################
+# TODO : Manage exceptions and defaults
+
 from quanta_models import createModel
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 -s|--seed=0
 # Cf. start_expe.sh
-# WIP : Manage exceptions and defaults
 outputDir  = sys.argv[1]
 currentRun = int(sys.argv[2])
 trsf_layer = int(sys.argv[3])
@@ -37,7 +56,7 @@ targetData = sys.argv[4]
 
 trainSource = False
 
-#Parametres
+#Parameters
 eta                   = 2e-4 # learning rate   
 etaDecay              = 1e-6 # weight decay
 numberOfEpochsSource  = 1
@@ -57,11 +76,8 @@ metrics     = ['accuracy', \
                tf.keras.metrics.TrueNegatives(),  \
                tf.keras.metrics.TopKCategoricalAccuracy(k=3)]
 
-augmentData         = False   #Flow data augmentation during training
-fromPreviousTraining= False   #False for training from scratch, True to start from previous save
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    #Less verbosity
-
+augmentData          = False   #Flow data augmentation during training
+fromPreviousTraining = False   #False for training from scratch, True to start from previous save
 
 ######## INPUT DATA
 print("Loading Data : start")
@@ -76,8 +92,18 @@ elif targetData == 'cifar100':
 else:
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar10.load_data()
-print("Loading Data : done\n")
 
+trainingSetSource = trainingSetSource[:320]
+trainingLabelsSource = trainingLabelsSource[:320]
+testSetSource = testSetSource[:320]
+testLabelsSource = testLabelsSource[:320]
+
+trainingSetTarget = trainingSetTarget[:320]
+trainingLabelsTarget = trainingLabelsTarget[:320]
+testSetTarget = testSetTarget[:320]
+testLabelsTarget = testLabelsTarget[:320]
+
+print("Loading Data : done\n")
 
 ## Normalize data and create one hots
 print("Normalizing data and creating one-hots : start")
@@ -91,7 +117,6 @@ if targetData == 'cifar100':
     trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 100)
 else:
     trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
-
 testSetTarget = testSetTarget/255.
 if targetData == 'cifar100':
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
@@ -170,35 +195,36 @@ def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
                   buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness)
 print("Building source and target models : done\n")
 
-nbrLambdas = len([NNTarget.layers[i].get_weights() \
-                  for i in range(len(NNTarget.layers)) \
-                  if (type(NNTarget.layers[i]).__name__ == "TFOpLambda")])
 
 ############
-### TF Keras callbacks for retrieving lambdas
-lambdas     = [[] for i in range(0, nbrLambdas)]
-raw_lambdas = [[] for i in range(0, nbrLambdas)]
+### TF Keras callbacks for retrieving quantas
 
-#TODO Debug here
-#def lambdasMonitoring(w): 
-#    weights = [np.array(w[i])[0][0] for i in range(len(w))]
-#    for i in range(0, nbrLambdas):
-#        lambdas[i] += [m.exp(weights[i][0])/(m.exp(weights[i][0])+m.exp(weights[i][1]))]
-#        raw_lambdas[i] += [weights[i][0]]
-#    return
+nbrQuantas = len([NNTarget.layers[i].get_weights() \
+                  for i in range(len(NNTarget.layers)) \
+                  if (type(NNTarget.layers[i]).__name__ == "QuantaLayer")])
+raw_quantas = []
+quantas     = []
 
-def printQuantaLayers(model):
+def monitorQuantaLayers(model):
     s= ""
     for l in range(len(model.layers)):
-        if (type(model.layers[l]).__name__ == "TFOpLambda"):
-            s += '\t Layer ' + str(l) + ' ' + str(model.layers[l].get_weights()) + '\n'
+        if (type(model.layers[l]).__name__ == "QuantaLayer"):
+            # Collect information to display
+            quantaWeights = model.layers[l].get_weights()[0][0]
+            s += '\t Quanta weights : ' + str(quantaWeights) + '\n'
+            quanta_S = m.exp(quantaWeights[0])/(m.exp(quantaWeights[0])+m.exp(quantaWeights[1]))
+            s += '\t Quanta value of Source : ' + str(quanta_S) + '\n'
+            s += '\t Quanta value of Target : ' + str(1. - quanta_S) + '\n'
+            # Store information to monitor evolution of quantas
+            raw_quantas.append(quantaWeights)
+            quantas.append(quanta_S)
     return s
 
-printRawQuantaWeights = tf.keras.callbacks.LambdaCallback(
+monitorQuantaLayerCallback = tf.keras.callbacks.LambdaCallback(
     on_epoch_begin  = lambda epoch,logs:
-            print('Quanta weights :\n', printQuantaLayers(NNTarget)),
+            print('Quanta layer :\n', monitorQuantaLayers(NNTarget)),
     on_epoch_end    = lambda epoch,logs:
-            print('Quanta weights :\n', printQuantaLayers(NNTarget))
+            print('Quanta layer :\n', monitorQuantaLayers(NNTarget))
     )
 
 #########
@@ -219,7 +245,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         trainingLabels = trainingLabelsTarget
         weights = "./NNTarget_w.h5"
         noe = numberOfEpochsTarget
-        cb  = [printRawQuantaWeights, recordTargetMetrics]
+        cb  = [monitorQuantaLayerCallback, recordTargetMetrics]
         bc  = batchSizeTarget
         NotLoadTarget=False
 
@@ -298,7 +324,7 @@ def writeFactors(l, e, raw=False):
     if raw is True: f = open(outputDir+'/'+str(e)+'_raw.txt', 'w')
     else:           f = open(outputDir+'/'+str(e)+'.txt', 'w')
     out = ""
-    for i in range(0, nbrLambdas):
+    for i in range(0, nbrQuantas):
         for j in range(0, len(l[i])):
             out += str(l[i][j])+" " 
         out += ","
@@ -326,10 +352,10 @@ def main1():
 
     print('Starting run ', currentRun)
 
-    for j in range(0, nbrLambdas): lambdas[j] = []
     train('T', augmentData, fromPreviousTraining)
-    writeFactors(lambdas, currentRun, raw=False)
-    writeFactors(raw_lambdas, currentRun, raw=True)
+    #TODO
+    #writeFactors(quantas, currentRun, raw=False)
+    #writeFactors(raw_quantas, currentRun, raw=True)
     if currentRun == 0:
         export_expe_summary(NNTarget, targetData, test('S'), test('T'))
 
