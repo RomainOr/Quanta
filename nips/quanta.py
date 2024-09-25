@@ -4,10 +4,7 @@ import math as m
 import tensorflow as tf
 import numpy as np
 from quanta_models import createModel
-from quanta_models import learning_rates
-from quanta_models import get_vinit
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from quanta_layer import quanta_layer
 
 
 # Run 1st run for gradual evaluation with layer 5:
@@ -20,15 +17,15 @@ targetData = sys.argv[4]  # 'cifar100' or 'cifar10'
 trainSource = False
 
 #Parametres
-eta, lrm = learning_rates()  # for export 
-etaDecay              = 1e-6
-numberOfEpochsSource  = 60
-numberOfEpochsWitness = 60
-numberOfEpochsTarget  = 60
+eta                   = 2e-4 # learning rate   
+etaDecay              = 1e-6 # weight decay
+numberOfEpochsSource  = 1
+numberOfEpochsWitness = 1
+numberOfEpochsTarget  = 1
 batchSizeSource       = 32    
-batchSizeTarget       = 32    
+batchSizeTarget       = 32
 
-optimizer   = tf.keras.optimizers.Adam(eta, decay=etaDecay)    #Optimizer for gradient descent
+optimizer   = tf.keras.optimizers.Adam(eta, weight_decay=etaDecay)    #Optimizer for gradient descent
 loss        = 'categorical_crossentropy'    #Loss giving gradients
 metrics     = ['accuracy', \
                tf.keras.metrics.Precision(),\
@@ -39,7 +36,7 @@ metrics     = ['accuracy', \
                tf.keras.metrics.TrueNegatives(),  \
                tf.keras.metrics.TopKCategoricalAccuracy(k=3)]
 
-augmentData         = True    #Flow  data augmentation during training
+augmentData         = False   #Flow data augmentation during training
 fromPreviousTraining= False   #False for training from scratch, True to start from previous save
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    #Less verbosity
@@ -47,7 +44,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    #Less verbosity
 
 
 ######## INPUT DATA
-print("Loading Data")
+print("Loading Data : start")
 (trainingSetSource, trainingLabelsSource),(testSetSource, testLabelsSource) = \
                 tf.keras.datasets.cifar10.load_data()
 if targetData == 'cifar100':
@@ -56,10 +53,11 @@ if targetData == 'cifar100':
 else:
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar10.load_data()
+print("Loading Data : done\n")
 
 
 ## Normalize data and create one hots
-print("Normalizing data, creating one-hots")
+print("Normalizing data and creating one-hots : start")
 trainingSetSource    = trainingSetSource/255.
 trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
 testSetSource    = testSetSource/255.
@@ -79,10 +77,9 @@ else:
 
 inputPlaceholderSource = tf.keras.Input([32, 32, 3], name='inputHolderSource')
 inputPlaceholderTarget = tf.keras.Input([32, 32, 3], name='inputHolderTarget')
+print("Normalizing data and creating one-hots : done\n")
 
 
-"""
-"""
 ## Data augmentation tensor
 trainGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
     featurewise_center=False,         #set input mean to 0 over the dataset
@@ -112,6 +109,7 @@ NNSource  = None
 NNWitness = None
 NNSourceCopy = None
 
+print("Building source and target models : start")
 def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
     NNSource     = tf.keras.Model(inputs=inputPlaceholderSource,
         outputs=createModel(inputPlaceholderSource, 10, trsf_layer=trsf_layer)) 
@@ -145,25 +143,21 @@ def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
     return ((NNSource, NNSourceCopy, NNTarget, NNWitness),\
               (NotLoadSource, NotLoadTarget, NotLoadWitness))
 
-print("Building source and target models")
 (NNSource, NNSourceCopy, NNTarget, NNWitness),(NotLoadSource, NotLoadTarget, NotLoadWitness) = \
                   buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness)
-
-
-### DEBUG
-#NNSourceCopy.summary(line_length=100)
-#NNTarget.summary(line_length=100)
-#sys.exit()
-####################
+print("Building source and target models : done\n")
 
 nbrLambdas = len([NNTarget.layers[i].get_weights() \
                   for i in range(len(NNTarget.layers)) \
-                  if (type(NNTarget.layers[i]).__name__ == "quanta_layer")])
+                  if (type(NNTarget.layers[i]).__name__ == "TFOpLambda")])
 
 ############
 ### TF Keras callbacks for retrieving lambdas
 lambdas     = [[] for i in range(0, nbrLambdas)]
 raw_lambdas = [[] for i in range(0, nbrLambdas)]
+
+print(lambdas)
+print(raw_lambdas)
 
 def lambdasMonitoring(w): 
     weights = [np.array(w[i])[0][0] for i in range(len(w))]
@@ -176,7 +170,7 @@ scalarWeightCallback = tf.keras.callbacks.LambdaCallback(
            on_epoch_end=lambda epoch,logs: lambdasMonitoring( 
                           [NNTarget.layers[i].get_weights()           \
                           for i in range(len(NNTarget.layers))        \
-                          if (type(NNTarget.layers[i]).__name__ == "quanta_layer")]))
+                          if (type(NNTarget.layers[i]).__name__ == "TFOpLambda")]))
 
 def lambdas_to_str(lambdas):
     s = ""
@@ -196,7 +190,7 @@ printRawLambdas = tf.keras.callbacks.LambdaCallback(
 def print_BCA_layers(model):
     s= ""
     for l in range (len(model.layers)):
-        if (type(model.layers[l]).__name__ == "quanta_layer"):
+        if (type(model.layers[l]).__name__ == "TFOpLambda"):
             s += 'Layer ' + str(l) + ' ' + str(model.layers[l].get_weights()) + '\n'
     return s
 
@@ -222,8 +216,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         trainingLabels = trainingLabelsTarget
         weights = "./NNTarget_w.h5"
         noe = numberOfEpochsTarget
-        cb  = [scalarWeightCallback, printLambdas, printRawLambdas, \
-                   record_target_metrics] #, print_raw_BCA_weights]
+        cb  = [scalarWeightCallback, printLambdas, printRawLambdas, record_target_metrics]
         bc  = batchSizeTarget
         NotLoadTarget=False
 
@@ -249,14 +242,14 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         NotLoadWitness=False
 
     if dataAugmentation: 
-        trainGenerator.fit(trainingSet, augment=True)
-        if fromPreviousTraining:model.load_weights(weights)
-        model.fit_generator(
-                trainGenerator.flow(
-                        trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
+        #trainGenerator.fit(trainingSet, augment=True)
+        if fromPreviousTraining: model.load_weights(weights)
+        #model.fit(
+        #        trainGenerator.flow(
+        #                trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
     else: 
         if fromPreviousTraining: model.load_weights(weights)
-        NNSource.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb, batch_size=bc)
+        #model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb, batch_size=bc)
 
     print("Saving model parameters")
     model.save_weights(weights)
@@ -312,8 +305,7 @@ def writeFactors(l, e, raw=False):
 def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
     f = open(outputDir+'/expe_summary.txt', 'a')
     export  = 'Target task: '  + targetData + '\n'
-    export += '(Eta: '+str(eta)+' LRM: '+str(lrm)+ ')\n'
-    export += 'v init: '    + str(get_vinit()) + '\n'
+    export += '(Eta: '+str(eta)+ ')\n'
     export += 'Target task' + str(target_task) + '\nSource model accuracy :' + \
                      str(float(src_accuracy)) + \
                      '\nTarget model accuracy: ' + str(target_accuracy) + \

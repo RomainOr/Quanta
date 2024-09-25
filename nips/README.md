@@ -31,21 +31,19 @@ The code was developped using [Python 3](https://www.python.org/downloads/) and 
 ├── LICENSE.txt
 ├── NNSource.h5
 ├── README.md
-├── plot_data.py
-├── plot_metrics.py
 ├── quanta.py
-├── quanta_layer.py
+├── QuantaLayer.py
 ├── quanta_models.py
 ```
 
 ## Running the code
 Use the bash script ``start_expe.sh`` to start an experiment:
 
-``./start_expe -o|--outdir=outputdir -r|--currentRun=29 -l|--layer=5 -t|targetTask=cifar10``
+``./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|targetTask=cifar10``
 
 Options:
 * ``-o|--outdir`` the output directory where the results of the experiements are written
-* ``-r|--currentRun`` -1 for executing 30 runs (30 x 60 epochs)
+* ``-r|--repeat=x`` for executing x runs (30 x 60 epochs)
 * ``-l|--layer=5`` the layer whose transferability is assessed (0 to 6)
 * ``-t|targetTask`` 'cifar10' or 'cifar100'
 
