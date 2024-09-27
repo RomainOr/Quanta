@@ -1,6 +1,7 @@
 import sys
 import os
 
+
 #################################################
 ############ Tensforflow verbosity ##############
 #################################################
@@ -14,7 +15,6 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'    #Less verbosity
 
 import random
-import math as m
 import numpy as np
 import tensorflow as tf
 
@@ -44,10 +44,7 @@ if SEED is not None and SEED > 0:
 #################################################
 # TODO : Manage exceptions and defaults
 
-from quanta_models import createModel
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-# Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 -s|--seed=0
+# Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 --seed=0
 # Cf. start_expe.sh
 outputDir  = sys.argv[1]
 currentRun = int(sys.argv[2])
@@ -55,6 +52,7 @@ trsf_layer = int(sys.argv[3])
 targetData = sys.argv[4]
 
 trainSource = False
+nbOfSamples = 320
 
 #Parameters
 eta                   = 2e-4 # learning rate   
@@ -79,7 +77,11 @@ metrics     = ['accuracy', \
 augmentData          = False   #Flow data augmentation during training
 fromPreviousTraining = False   #False for training from scratch, True to start from previous save
 
-######## INPUT DATA
+
+#################################################
+############## Loading input data ###############
+#################################################
+
 print("Loading Data : start")
 (trainingSetSource, trainingLabelsSource),(testSetSource, testLabelsSource) = \
     tf.keras.datasets.cifar10.load_data()
@@ -93,19 +95,22 @@ else:
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar10.load_data()
 
-trainingSetSource = trainingSetSource[:320]
-trainingLabelsSource = trainingLabelsSource[:320]
-testSetSource = testSetSource[:320]
-testLabelsSource = testLabelsSource[:320]
+trainingSetSource = trainingSetSource[:nbOfSamples]
+trainingLabelsSource = trainingLabelsSource[:nbOfSamples]
+testSetSource = testSetSource[:nbOfSamples]
+testLabelsSource = testLabelsSource[:nbOfSamples]
 
-trainingSetTarget = trainingSetTarget[:320]
-trainingLabelsTarget = trainingLabelsTarget[:320]
-testSetTarget = testSetTarget[:320]
-testLabelsTarget = testLabelsTarget[:320]
-
+trainingSetTarget = trainingSetTarget[:nbOfSamples]
+trainingLabelsTarget = trainingLabelsTarget[:nbOfSamples]
+testSetTarget = testSetTarget[:nbOfSamples]
+testLabelsTarget = testLabelsTarget[:nbOfSamples]
 print("Loading Data : done\n")
 
-## Normalize data and create one hots
+
+#################################################
+#### Normalizing data and creating one-hots #####
+#################################################
+
 print("Normalizing data and creating one-hots : start")
 trainingSetSource    = trainingSetSource/255.
 trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
@@ -128,8 +133,95 @@ inputPlaceholderTarget = tf.keras.Input([32, 32, 3], name='inputHolderTarget')
 print("Normalizing data and creating one-hots : done\n")
 
 
-## Data augmentation tensor
-trainGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
+#################################################
+####### Building source and target models #######
+#################################################
+
+from quanta_models import createModel
+
+print("Building source and target models : start")
+
+def buildModels():
+    NNSource     = tf.keras.Model(
+        inputs=inputPlaceholderSource,
+        outputs=createModel(
+            placeholder=inputPlaceholderSource,
+            outputSize=10,
+            trsf_layer=trsf_layer)
+        ) 
+    NNSourceCopy = tf.keras.Model(
+        inputs=inputPlaceholderTarget,
+        outputs=createModel(
+            placeholder=inputPlaceholderTarget,
+            outputSize=10,
+            trsf_layer=trsf_layer)
+        )
+
+    if targetData == 'cifar100':
+        NNTarget  = tf.keras.Model(
+            inputs=inputPlaceholderTarget, 
+            outputs=createModel(
+                placeholder=inputPlaceholderTarget,
+                outputSize=100,
+                trsf_layer=trsf_layer,
+                sourceModel=NNSourceCopy)
+            ) 
+        NNWitness = tf.keras.Model(
+            inputs=inputPlaceholderTarget,
+            outputs=createModel(
+                placeholder=inputPlaceholderTarget, 
+                outputSize=100, 
+                trsf_layer=trsf_layer)
+            )
+    else:
+        NNTarget  = tf.keras.Model(
+            inputs=inputPlaceholderTarget,
+            outputs=createModel(
+                placeholder=inputPlaceholderTarget,
+                outputSize=10,
+                trsf_layer=trsf_layer,
+                sourceModel=NNSourceCopy)
+            ) 
+        NNWitness = tf.keras.Model(
+            inputs=inputPlaceholderTarget,
+            outputs=createModel(
+                placeholder=inputPlaceholderTarget,
+                outputSize=10,
+                trsf_layer=trsf_layer)
+            )
+
+    for l in NNSourceCopy.layers: l.trainable=False
+    NNSource.compile(optimizer, loss, metrics)
+    NNTarget.compile(optimizer, loss, metrics)
+    NNWitness.compile(optimizer, loss, metrics)
+
+    #
+    NotLoadSource  = True
+    NotLoadTarget  = True
+    NotLoadWitness = True
+    return ((NNSource, NNSourceCopy, NNTarget, NNWitness),\
+              (NotLoadSource, NotLoadTarget, NotLoadWitness))
+
+(NNSource, NNSourceCopy, NNTarget, NNWitness),(NotLoadSource, NotLoadTarget, NotLoadWitness) = \
+                  buildModels()
+print("Building source and target models : done\n")
+
+
+#################################################
+######### Model training and evaluation #########
+#################################################
+
+from typing import cast
+from QuantaLayer import QuantaLayer
+
+# Callback for exporting accuracy during training
+targetMetrics = []
+recordTargetMetrics = tf.keras.callbacks.LambdaCallback(
+    on_epoch_end=lambda epoch,logs: targetMetrics.append(
+        NNTarget.evaluate(testSetTarget, testLabelsTarget)))
+
+# Data augmentation generator
+dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
     featurewise_center=False,         #set input mean to 0 over the dataset
     samplewise_center=False,          #set each sample mean to 0
     featurewise_std_normalization=False,     #divide inputs by std of the dataset
@@ -151,90 +243,6 @@ trainGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
     data_format=None
 )
 
-######## BUILDING MODELS
-NNTarget  = None
-NNSource  = None
-NNWitness = None
-NNSourceCopy = None
-
-print("Building source and target models : start")
-def buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness):
-    NNSource     = tf.keras.Model(inputs=inputPlaceholderSource,
-        outputs=createModel(inputPlaceholderSource, 10, trsf_layer=trsf_layer)) 
-    NNSourceCopy = tf.keras.Model(inputs=inputPlaceholderTarget,
-       outputs=createModel(inputPlaceholderTarget, 10, trsf_layer=trsf_layer)) 
-
-    if targetData == 'cifar100':
-        NNTarget  = tf.keras.Model(inputs=inputPlaceholderTarget, 
-                        outputs=createModel(inputPlaceholderTarget, 100,
-                        sourceModel=NNSourceCopy, trsf_layer=trsf_layer)) 
-        NNWitness = tf.keras.Model(inputs=inputPlaceholderTarget,
-                        outputs=createModel(inputPlaceholderTarget, 100, 
-                        trsf_layer=trsf_layer))
-    else:
-        NNTarget  = tf.keras.Model(inputs=inputPlaceholderTarget,
-                        outputs=createModel(inputPlaceholderTarget, 10,
-                        sourceModel=NNSourceCopy, trsf_layer=trsf_layer)) 
-        NNWitness = tf.keras.Model(inputs=inputPlaceholderTarget,
-                        outputs=createModel(inputPlaceholderTarget, 10,
-                        trsf_layer=trsf_layer))
-
-    for l in NNSourceCopy.layers: l.trainable=False
-    NNSource.compile(optimizer, loss, metrics)
-    NNTarget.compile(optimizer, loss, metrics)
-    NNWitness.compile(optimizer, loss, metrics)
-
-    #
-    NotLoadSource  = True
-    NotLoadTarget  = True
-    NotLoadWitness = True
-    return ((NNSource, NNSourceCopy, NNTarget, NNWitness),\
-              (NotLoadSource, NotLoadTarget, NotLoadWitness))
-
-(NNSource, NNSourceCopy, NNTarget, NNWitness),(NotLoadSource, NotLoadTarget, NotLoadWitness) = \
-                  buildModels(NNSource, NNSourceCopy, NNTarget, NNWitness)
-print("Building source and target models : done\n")
-
-
-############
-### TF Keras callbacks for retrieving quantas
-
-nbrQuantas = len([NNTarget.layers[i].get_weights() \
-                  for i in range(len(NNTarget.layers)) \
-                  if (type(NNTarget.layers[i]).__name__ == "QuantaLayer")])
-raw_quantas = []
-quantas     = []
-
-def monitorQuantaLayers(model):
-    s= ""
-    for l in range(len(model.layers)):
-        if (type(model.layers[l]).__name__ == "QuantaLayer"):
-            # Collect information to display
-            quantaWeights = model.layers[l].get_weights()[0][0]
-            s += '\t Quanta weights : ' + str(quantaWeights) + '\n'
-            quanta_S = m.exp(quantaWeights[0])/(m.exp(quantaWeights[0])+m.exp(quantaWeights[1]))
-            s += '\t Quanta value of Source : ' + str(quanta_S) + '\n'
-            s += '\t Quanta value of Target : ' + str(1. - quanta_S) + '\n'
-            # Store information to monitor evolution of quantas
-            raw_quantas.append(quantaWeights)
-            quantas.append(quanta_S)
-    return s
-
-monitorQuantaLayerCallback = tf.keras.callbacks.LambdaCallback(
-    on_epoch_begin  = lambda epoch,logs:
-            print('Quanta layer :\n', monitorQuantaLayers(NNTarget)),
-    on_epoch_end    = lambda epoch,logs:
-            print('Quanta layer :\n', monitorQuantaLayers(NNTarget))
-    )
-
-#########
-# Callback for exporting accuracy during training
-targetMetrics = []
-recordTargetMetrics = tf.keras.callbacks.LambdaCallback(
-    on_epoch_end=lambda epoch,logs: targetMetrics.append(
-                NNTarget.evaluate(testSetTarget, testLabelsTarget)))
-
-###### MODEL TRAINING AND EVALUATION
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
     # modelName : T for target, S for source, W for witness
     if (modelName == 'T'):
@@ -245,7 +253,10 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         trainingLabels = trainingLabelsTarget
         weights = "./NNTarget_w.h5"
         noe = numberOfEpochsTarget
-        cb  = [monitorQuantaLayerCallback, recordTargetMetrics]
+        cb  = [recordTargetMetrics]
+        for i in range(len(model.layers)):
+            if (type(model.layers[i]).__name__ == "QuantaLayer"):
+                cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback())
         bc  = batchSizeTarget
         NotLoadTarget=False
 
@@ -271,10 +282,10 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         NotLoadWitness=False
 
     if dataAugmentation: 
-        trainGenerator.fit(trainingSet, augment=True)
+        dataAugmentationGenerator.fit(trainingSet, augment=True)
         if fromPreviousTraining: model.load_weights(weights)
         model.fit(
-                trainGenerator.flow(
+                dataAugmentationGenerator.flow(
                         trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
     else: 
         if fromPreviousTraining: model.load_weights(weights)
@@ -320,16 +331,9 @@ def test(modelName):
     return metrics[1] # accuracy
 
 
-def writeFactors(l, e, raw=False):
-    if raw is True: f = open(outputDir+'/'+str(e)+'_raw.txt', 'w')
-    else:           f = open(outputDir+'/'+str(e)+'.txt', 'w')
-    out = ""
-    for i in range(0, nbrQuantas):
-        for j in range(0, len(l[i])):
-            out += str(l[i][j])+" " 
-        out += ","
-    f.write(out)
-    f.close()
+#################################################
+############### Exporting metrics ###############
+#################################################
 
 def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
     f = open(outputDir+'/expe_summary.txt', 'a')
@@ -344,6 +348,11 @@ def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
     f.close()
     return
 
+
+#################################################
+##################### Main ######################
+#################################################
+
 def main1():
     print("Target task: ", targetData)
 
@@ -353,9 +362,11 @@ def main1():
     print('Starting run ', currentRun)
 
     train('T', augmentData, fromPreviousTraining)
+
     #TODO
     #writeFactors(quantas, currentRun, raw=False)
     #writeFactors(raw_quantas, currentRun, raw=True)
+
     if currentRun == 0:
         export_expe_summary(NNTarget, targetData, test('S'), test('T'))
 

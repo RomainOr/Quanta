@@ -21,7 +21,7 @@ case $i in
     TASK="${i#*=}"
     shift
     ;;
-    -s=*|--seed=*)
+    --seed=*)
     SEED="${i#*=}"
     shift
     ;;
@@ -38,7 +38,6 @@ done
 # Echoing arguments to recap the user what he has typed
 echo 'Script parameters : '
 echo '\t Output directory: ' ${OUTDIR}
-echo '\t Running simultaneous transfer: ' ${COEVAL}
 echo '\t Number of repeat: ' ${REPEAT}
 echo '\t Layer: ' ${LAYER}
 echo '\t Target task: ' ${TASK}
