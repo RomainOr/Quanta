@@ -8,10 +8,10 @@ class QuantaCustomCallback(tf.keras.callbacks.Callback):
             self._quantas = []
             self._nbLayer = -1
 
-        def _monitorQuantaLayers(self, model):
+        def _monitorQuantaLayer(self, layer):
             s= '\n\t Quanta layer ' + str(self._nbLayer) + ' :\n'
             # Collect information to display
-            quantaWeights = model.layers[self._nbLayer].get_weights()[0][0]
+            quantaWeights = layer.get_weights()[0][0]
             s += '\t\t Quanta weights : ' + str(quantaWeights) + '\n'
             quantas = tf.nn.softmax(quantaWeights)
             s += '\t\t Quanta value of Source : ' + str(quantas.numpy()[0]) + '\n'
@@ -28,10 +28,11 @@ class QuantaCustomCallback(tf.keras.callbacks.Callback):
             return self._quantas
         
         def setNbrLayer(self, nbLayer):
-            self._nbLayer = nbLayer
+            if self._nbLayer == -1 :
+                self._nbLayer = nbLayer
 
         def on_epoch_begin(self, epoch, logs=None):
-            print(self._monitorQuantaLayers(self.model))
+            print(self._monitorQuantaLayer(self.model.layers[self._nbLayer]))
 
         def on_epoch_end(self, epoch, logs=None):
-            print(self._monitorQuantaLayers(self.model))
+            print(self._monitorQuantaLayer(self.model.layers[self._nbLayer]))
