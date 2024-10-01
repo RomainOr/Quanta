@@ -1,5 +1,4 @@
 import tensorflow as tf
-import math as m
 
 class QuantaCustomCallback(tf.keras.callbacks.Callback):
 
@@ -15,12 +14,12 @@ class QuantaCustomCallback(tf.keras.callbacks.Callback):
                     # Collect information to display
                     quantaWeights = model.layers[l].get_weights()[0][0]
                     s += '\t Quanta weights : ' + str(quantaWeights) + '\n'
-                    quanta_source = m.exp(quantaWeights[0])/(m.exp(quantaWeights[0])+m.exp(quantaWeights[1]))
-                    s += '\t Quanta value of Source : ' + str(quanta_source) + '\n'
-                    s += '\t Quanta value of Target : ' + str(1. - quanta_source) + '\n'
+                    quantas = tf.nn.softmax(quantaWeights)
+                    s += '\t Quanta value of Source : ' + str(quantas.numpy()[0]) + '\n'
+                    s += '\t Quanta value of Target : ' + str(quantas.numpy()[1]) + '\n'
                     # Store computed wieghts of quanta and value of source quanta
                     self._quantaWeights.append(quantaWeights)
-                    self._quantas.append(quanta_source)
+                    self._quantas.append(quantas)
             return s
 
         def getQuantaWeights(self):
