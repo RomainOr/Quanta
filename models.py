@@ -79,43 +79,43 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
     inputSource = tf.keras.Input([32, 32, 3], name='inputSource')
     inputTarget = tf.keras.Input([32, 32, 3], name='inputTarget')
     
-    NNSource     = tf.keras.Model(
+    sourceModel = tf.keras.Model(
         inputs=inputSource,
         outputs=createModel(
             pInput=inputSource,
             outputSize=10,
             layerToTranfer=layerToTranfer)
         )
+    sourceModel._name = "S"
 
-    NNSourceCopy = tf.keras.Model(
+    sourceModelCopy = tf.keras.Model(
         inputs=inputTarget,
         outputs=createModel(
             pInput=inputTarget,
             outputSize=10,
             layerToTranfer=layerToTranfer)
         )
-    for l in NNSourceCopy.layers: l.trainable=False
+    sourceModelCopy._name = "S_copy"
+    for l in sourceModelCopy.layers: l.trainable=False
 
     if targetTask == 'cifar100':
         outputSize = 100
     else :
         outputSize = 10
 
-    NNTarget  = tf.keras.Model(
+    targetModel  = tf.keras.Model(
         inputs=inputTarget,
         outputs=createModel(
             pInput=inputTarget,
             outputSize=outputSize,
             layerToTranfer=layerToTranfer,
-            sourceModel=NNSourceCopy)
+            sourceModel=sourceModelCopy)
         )
+    targetModel._name = "T"
 
-    NNSource.compile(optimizer, loss, metrics)
-    NNTarget.compile(optimizer, loss, metrics)
-
-    NotLoadSource  = True
-    NotLoadTarget  = True
+    sourceModel.compile(optimizer, loss, metrics)
+    targetModel.compile(optimizer, loss, metrics)
     
     print("Building source and target models : done\n")
     
-    return NNSource, NNSourceCopy, NNTarget
+    return sourceModel, sourceModelCopy, targetModel

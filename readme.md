@@ -29,11 +29,12 @@ The code was developped using [Python 3](https://www.python.org/downloads/) and 
 .
 ├── CREDITS.md
 ├── LICENSE.txt
-├── NNSource.h5
+├── SourceModel.h5
 ├── README.md
+├── models.py
 ├── quanta.py
+├── QuantaCustomCallback.py
 ├── QuantaLayer.py
-├── quanta_models.py
 ```
 
 ## Running the code
@@ -56,6 +57,8 @@ has the following structure:
 ├── specified_output_dir
 │   ├── 0.txt
 │   ├── 0_raw.txt
+│   ├── metrics_0_S.txt
+│   ├── metrics_0_T.txt
 │   └── all_target_metrics_0.txt
 ├── ...
 ├── README.md
@@ -66,9 +69,6 @@ over the 60 epochs of run number 0 (run number ``r``). Files suffixed ``raw``
 contain the values of ``v`` (that is, before being transformed through a softmax).
 The file ``all_target_metrics_0.txt`` (resp. ``all_target_metrics_r.txt``)
 contains all the exported model metrics over the 60 epochs of run 0 (resp. ``r``).
-
-These data can be plotted using ``plot_data.py`` then ``plot_metrics.py``.
-Generated figures are written in the specified output directory.
 
 ## Licence
 This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``

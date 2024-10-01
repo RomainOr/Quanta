@@ -47,7 +47,7 @@ echo 'Starting run(s) : '
 
 if [ "${REPEAT}" == "-1" ]; then
 	echo "\n\t Layer " ${LAYER} " - Run number 1 \n"
-	python3 quanta.py ${OUTDIR} 0 ${LAYER} ${TASK} ${SEED}
+	python3 main.py ${OUTDIR} 0 ${LAYER} ${TASK} ${SEED}
 	exit 0
 fi
 
@@ -56,7 +56,7 @@ for run in $(seq 1 $REPEAT)
 do
 	echo "\n\t Layer " ${LAYER} " - Run number " $run "\n"
 	((total_run++))
-	python3 quanta.py ${OUTDIR} $run ${LAYER} ${TASK} ${SEED}
+	python3 main.py ${OUTDIR} $run ${LAYER} ${TASK} ${SEED}
 done
 
 echo "++++++++ REPEAT BASH SCRIPT DONE --- Layer ${LAYER} -- Total runs $total_run"

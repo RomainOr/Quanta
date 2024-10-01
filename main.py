@@ -48,13 +48,24 @@ if SEED is not None and SEED > 0:
 # Cf. start_expe.sh
 outputDir  = sys.argv[1]
 currentRun = int(sys.argv[2])
-transferedLayer = int(sys.argv[3])
+layerToTransfer = int(sys.argv[3])
 targetTask = sys.argv[4]
+
+print("Python parameters :")
+print("\t Output directory : ", outputDir)
+if not os.path.exists(outputDir):
+    print('\t\t Creating non-existing output directory')
+    os.makedirs(outputDir)
+print("\t Current run : ", currentRun)
+print("\t Layer : ", layerToTransfer)
+print("\t Target task : ", targetTask)
+print("\t Seed : ", SEED)
+print("\n")
 
 trainSource = False
 nbOfSamples = 320
 
-#Parameters
+# Parameters
 eta                   = 2e-4 # learning rate   
 etaDecay              = 1e-6 # weight decay
 numberOfEpochsSource  = 1
@@ -135,7 +146,7 @@ print("Normalizing data and creating one-hots : done\n")
 
 from models import compileModels
 
-NNSource, NNSourceCopy, NNTarget = compileModels(targetTask, transferedLayer, optimizer, loss, metrics)
+sourceModel, sourceModelCopy, targetModel = compileModels(targetTask, layerToTransfer, optimizer, loss, metrics)
 
 
 #################################################
@@ -145,58 +156,48 @@ NNSource, NNSourceCopy, NNTarget = compileModels(targetTask, transferedLayer, op
 from typing import cast
 from QuantaLayer import QuantaLayer
 
-# Callback for exporting accuracy during training
-targetMetrics = []
-recordTargetMetrics = tf.keras.callbacks.LambdaCallback(
-    on_epoch_end=lambda epoch,logs: targetMetrics.append(
-        NNTarget.evaluate(testSetTarget, testLabelsTarget)))
-
 # Data augmentation generator
 dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
-    featurewise_center=False,         #set input mean to 0 over the dataset
-    samplewise_center=False,          #set each sample mean to 0
-    featurewise_std_normalization=False,     #divide inputs by std of the dataset
-    samplewise_std_normalization=False,      #divide each input by its std
-    zca_whitening=False,            #apply ZCA whitening
-    zca_epsilon=1e-06,              #epsilon for ZCA whitening
     rotation_range=45,              #randomly rotate images in the range (degrees, 0 to 180)
     width_shift_range=0.1,          #randomly shifting image horizontally
     height_shift_range=0.1,         #randomly shifting image vertically
     shear_range=0.1,                #set range for random shear
     zoom_range=0.1,                 #set range for random zoom
-    channel_shift_range=0.,         #set range for random channel shifts
-    fill_mode='nearest',            #fillmode for image manipulation
-    cval=0.,                        #value used for fill_mode = "constant"
     horizontal_flip=True,           #randomly flip images horizontally
     vertical_flip=True,             #randomly flip images vertially
-    rescale=None,
-    preprocessing_function=None,
-    data_format=None
 )
 
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
+    trainingMetrics = {}
+    # Callback for exporting accuracy during training
     # modelName : T for target, S for source
     if (modelName == 'T'):
         print("\nTraining target model : start")
-        NNSourceCopy.load_weights('./NNSource_w.h5')
-        model = NNTarget
+        sourceModelCopy.load_weights('./SourceModel_w.h5')
+        model = targetModel
         trainingSet    = trainingSetTarget
         trainingLabels = trainingLabelsTarget
-        weights = "./NNTarget_w.h5"
+        weights = "./TargetModel_w.h5"
         noe = numberOfEpochsTarget
-        cb  = [recordTargetMetrics]
+        cb  = [tf.keras.callbacks.LambdaCallback(
+                on_epoch_end=lambda epoch,logs: 
+                    trainingMetrics.update({epoch : logs})
+                )]
         for i in range(len(model.layers)):
             if (type(model.layers[i]).__name__ == "QuantaLayer"):
                 cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
         bc  = batchSizeTarget
     else :
         print("\nTraining source model : start")
-        model = NNSource
+        model = sourceModel
         trainingSet    = trainingSetSource
         trainingLabels = trainingLabelsSource
-        weights = "./NNSource_w.h5"
-        cb  = []
+        weights = "./SourceModel_w.h5"
         noe = numberOfEpochsSource
+        cb  = [tf.keras.callbacks.LambdaCallback(
+                on_epoch_end=lambda epoch,logs: 
+                    trainingMetrics.update({epoch : logs})
+                )]
         bc  = batchSizeSource
 
     if dataAugmentation: 
@@ -204,7 +205,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         if fromPreviousTraining: model.load_weights(weights)
         model.fit(
                 dataAugmentationGenerator.flow(
-                        trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
+                    trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
     else: 
         if fromPreviousTraining: model.load_weights(weights)
         model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb, batch_size=bc)
@@ -213,82 +214,52 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
     print("Saving model parameters : start")
     model.save_weights(weights)
     print("Saving model parameters : done\n")
-    return
+    return trainingMetrics
 
 def test(modelName): 
     if (modelName == 'T'):
         print("Testing target model : start")
-        NNSourceCopy.load_weights("./NNSource_w.h5")
-        model = NNTarget
+        sourceModelCopy.load_weights("./SourceModel_w.h5")
+        model = targetModel
         testSet    = testSetTarget
         testLabels = testLabelsTarget
-        weights = "./NNTarget_w.h5"
+        weights = "./TargetModel_w.h5"
 
     else :
         print("Testing source model : start")
-        model = NNSource
+        model = sourceModel
         testSet    = testSetSource
         testLabels = testLabelsSource
-        weights = "./NNSource_w.h5"
+        weights = "./SourceModel_w.h5"
 
     model.load_weights(weights)
-    metrics = model.evaluate(testSet, testLabels)
+    metrics = model.evaluate(testSet, testLabels, return_dict=True)
     print("Testing model : done\n")
     return metrics
+
+trainingMetricsOfTarget = train('T', augmentData, fromPreviousTraining)
+testingMetricsOfSource = test('S')
+testingMetricsOfTarget = test('T')
 
 
 #################################################
 ############### Exporting metrics ###############
 #################################################
 
-def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
-    export  = 'Target task : '  + targetTask + '\n'
-    export += '(Eta : '+str(eta)+ ')\n'
-    export += 'Source model accuracy : ' + str(src_accuracy) + '\n'
-    export += 'Target model accuracy : ' + str(target_accuracy) + '\n'
-    export += '\nTarget model summary :\n\n'
-    f = open(outputDir+'/expe_summary.txt', 'a')
-    f.write(export)
-    NNTarget.summary(line_length=80, print_fn=lambda x: f.write(x + '\n'))
-    f.write("\n\n")
-    f.close()
-    return
-
-
-#################################################
-##################### Main ######################
-#################################################
-
-print("Python parameters :")
-print("\t Output directory : ", outputDir)
-if not os.path.exists(outputDir):
-    print('\t\t Creating non-existing output directory')
-    os.makedirs(outputDir)
-print("\t Current run : ", currentRun)
-print("\t Layer : ", transferedLayer)
-print("\t Target task : ", targetTask)
-print("\t Seed : ", SEED)
-
-train('T', augmentData, fromPreviousTraining)
-metrics_source = test('S')
-metrics_target = test('T')
-
 #TODO : Export data, weights and metrics
+# task / parameters / accuracies / model.summary() / etc.
 
-f = open(outputDir+'/metrics'+str(currentRun)+'S.txt', 'a')
-f.write(str(metrics_source)+'\n')
+f = open(outputDir+'/training_metrics_of_target_' + str(currentRun) + '.txt','a')
+for i in range(0, len(trainingMetricsOfTarget)): f.write(str(trainingMetricsOfTarget[i])+'\n')
 f.close()
-print("Final testing accuracy of source :" +str(metrics_source[1])+"\n")
 
-f = open(outputDir+'/metrics'+str(currentRun)+'T.txt', 'a')
-f.write(str(metrics_target)+'\n')
+f = open(outputDir+'/testing_metrics_of_source_'+str(currentRun)+'.txt', 'a')
+f.write(str(testingMetricsOfSource)+'\n')
 f.close()
-print("Final testing accuracy of target :" +str(metrics_target[1])+"\n")
 
-if currentRun == 0:
-    #metrics_X[1] -> accuracy
-    export_expe_summary(NNTarget, targetTask, metrics_source[1], metrics_target[1])
-
-f = open(outputDir+'/all_target_metrics_' + str(currentRun) + '.txt','a')
-for i in range(0, len(targetMetrics)): f.write(str(targetMetrics[i])+'\n')
+f = open(outputDir+'/testing_metrics_of_target_'+str(currentRun)+'.txt', 'a')
+f.write(str(testingMetricsOfTarget)+'\n')
 f.close()
+
+print("Final testing accuracy of source :" +str(testingMetricsOfSource['accuracy']))
+print("Final testing accuracy of target :" +str(testingMetricsOfTarget['accuracy']))
