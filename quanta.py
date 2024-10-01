@@ -58,7 +58,6 @@ nbOfSamples = 320
 eta                   = 2e-4 # learning rate   
 etaDecay              = 1e-6 # weight decay
 numberOfEpochsSource  = 1
-numberOfEpochsWitness = 1
 numberOfEpochsTarget  = 1
 batchSizeSource       = 32    
 batchSizeTarget       = 32
@@ -127,84 +126,17 @@ if targetTask == 'cifar100':
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
 else:
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 10)
-
-inputPlaceholderSource = tf.keras.Input([32, 32, 3], name='inputHolderSource')
-inputPlaceholderTarget = tf.keras.Input([32, 32, 3], name='inputHolderTarget')
 print("Normalizing data and creating one-hots : done\n")
 
 
 #################################################
-####### Building source and target models #######
+######### Building and compiling models #########
 #################################################
 
-from quanta_models import createModel
+from models import compileModels
 
-print("Building source and target models : start")
-
-def buildModels():
-    NNSource     = tf.keras.Model(
-        inputs=inputPlaceholderSource,
-        outputs=createModel(
-            placeholder=inputPlaceholderSource,
-            outputSize=10,
-            transferedLayer=transferedLayer)
-        ) 
-    NNSourceCopy = tf.keras.Model(
-        inputs=inputPlaceholderTarget,
-        outputs=createModel(
-            placeholder=inputPlaceholderTarget,
-            outputSize=10,
-            transferedLayer=transferedLayer)
-        )
-
-    if targetTask == 'cifar100':
-        NNTarget  = tf.keras.Model(
-            inputs=inputPlaceholderTarget, 
-            outputs=createModel(
-                placeholder=inputPlaceholderTarget,
-                outputSize=100,
-                transferedLayer=transferedLayer,
-                sourceModel=NNSourceCopy)
-            ) 
-        NNWitness = tf.keras.Model(
-            inputs=inputPlaceholderTarget,
-            outputs=createModel(
-                placeholder=inputPlaceholderTarget, 
-                outputSize=100, 
-                transferedLayer=transferedLayer)
-            )
-    else:
-        NNTarget  = tf.keras.Model(
-            inputs=inputPlaceholderTarget,
-            outputs=createModel(
-                placeholder=inputPlaceholderTarget,
-                outputSize=10,
-                transferedLayer=transferedLayer,
-                sourceModel=NNSourceCopy)
-            ) 
-        NNWitness = tf.keras.Model(
-            inputs=inputPlaceholderTarget,
-            outputs=createModel(
-                placeholder=inputPlaceholderTarget,
-                outputSize=10,
-                transferedLayer=transferedLayer)
-            )
-
-    for l in NNSourceCopy.layers: l.trainable=False
-    NNSource.compile(optimizer, loss, metrics)
-    NNTarget.compile(optimizer, loss, metrics)
-    NNWitness.compile(optimizer, loss, metrics)
-
-    #
-    NotLoadSource  = True
-    NotLoadTarget  = True
-    NotLoadWitness = True
-    return ((NNSource, NNSourceCopy, NNTarget, NNWitness),\
-              (NotLoadSource, NotLoadTarget, NotLoadWitness))
-
-(NNSource, NNSourceCopy, NNTarget, NNWitness),(NotLoadSource, NotLoadTarget, NotLoadWitness) = \
-                  buildModels()
-print("Building source and target models : done\n")
+(NNSource, NNSourceCopy, NNTarget),(NotLoadSource, NotLoadTarget) = \
+                  compileModels(targetTask, transferedLayer, optimizer, loss, metrics)
 
 
 #################################################
@@ -244,7 +176,7 @@ dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
 )
 
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
-    # modelName : T for target, S for source, W for witness
+    # modelName : T for target, S for source
     if (modelName == 'T'):
         print("\nTraining target model : start")
         NNSourceCopy.load_weights('./NNSource_w.h5')
@@ -259,8 +191,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
                 cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
         bc  = batchSizeTarget
         NotLoadTarget=False
-
-    elif (modelName == 'S'):
+    else :
         print("\nTraining source model : start")
         model = NNSource
         trainingSet    = trainingSetSource
@@ -270,16 +201,6 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         noe = numberOfEpochsSource
         bc  = batchSizeSource
         NotLoadSource=False
-    else :
-        print("\nTraining witness model : start")
-        model = NNWitness
-        trainingSet    = trainingSetTarget
-        trainingLabels = trainingLabelsTarget
-        weights = "./NNWitness_w.h5"
-        cb  = []
-        noe = numberOfEpochsWitness
-        bc  = batchSizeSource
-        NotLoadWitness=False
 
     if dataAugmentation: 
         dataAugmentationGenerator.fit(trainingSet, augment=True)
@@ -307,19 +228,12 @@ def test(modelName):
         weights = "./NNTarget_w.h5"
         snl     = NotLoadTarget
 
-    elif (modelName == 'S'):
+    else :
         print("Testing source model : start")
         model = NNSource
         testSet    = testSetSource
         testLabels = testLabelsSource
         weights = "./NNSource_w.h5"
-        snl     = NotLoadWitness
-    else :
-        print("Testing witness model : start")
-        model = NNWitness
-        testSet    = testSetTarget
-        testLabels = testLabelsTarget
-        weights = "./NNWitness_w.h5"
         snl     = NotLoadSource
 
     if snl: model.load_weights(weights)
@@ -334,15 +248,15 @@ def test(modelName):
 #################################################
 
 def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
+    export  = 'Target task : '  + targetTask + '\n'
+    export += '(Eta : '+str(eta)+ ')\n'
+    export += 'Source model accuracy : ' + str(src_accuracy) + '\n'
+    export += 'Target model accuracy : ' + str(target_accuracy) + '\n'
+    export += '\nTarget model summary :\n\n'
     f = open(outputDir+'/expe_summary.txt', 'a')
-    export  = 'Target task: '  + targetTask + '\n'
-    export += '(Eta: '+str(eta)+ ')\n'
-    export += 'Target task' + str(target_task) + '\nSource model accuracy :' + \
-                     str(float(src_accuracy)) + \
-                     '\nTarget model accuracy: ' + str(target_accuracy) + \
-                     '\nTarget model summary:\n'
     f.write(export)
     NNTarget.summary(line_length=80, print_fn=lambda x: f.write(x + '\n'))
+    f.write("\n\n")
     f.close()
     return
 
@@ -367,12 +281,12 @@ metrics_target = test('T')
 
 #TODO : Export data, weights and metrics
 
-f = open(outputDir+'/metrics'+str(currentRun)+'S.txt', 'w')
+f = open(outputDir+'/metrics'+str(currentRun)+'S.txt', 'a')
 f.write(str(metrics_source)+'\n')
 f.close()
 print("Final testing accuracy of source :" +str(metrics_source[1])+"\n")
 
-f = open(outputDir+'/metrics'+str(currentRun)+'T.txt', 'w')
+f = open(outputDir+'/metrics'+str(currentRun)+'T.txt', 'a')
 f.write(str(metrics_target)+'\n')
 f.close()
 print("Final testing accuracy of target :" +str(metrics_target[1])+"\n")
