@@ -48,8 +48,8 @@ if SEED is not None and SEED > 0:
 # Cf. start_expe.sh
 outputDir  = sys.argv[1]
 currentRun = int(sys.argv[2])
-trsf_layer = int(sys.argv[3])
-targetData = sys.argv[4]
+transferedLayer = int(sys.argv[3])
+targetTask = sys.argv[4]
 
 trainSource = False
 nbOfSamples = 320
@@ -85,10 +85,10 @@ fromPreviousTraining = False   #False for training from scratch, True to start f
 print("Loading Data : start")
 (trainingSetSource, trainingLabelsSource),(testSetSource, testLabelsSource) = \
     tf.keras.datasets.cifar10.load_data()
-if targetData == 'cifar10':
+if targetTask == 'cifar10':
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar10.load_data()
-elif targetData == 'cifar100':
+elif targetTask == 'cifar100':
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar100.load_data()
 else:
@@ -118,12 +118,12 @@ testSetSource    = testSetSource/255.
 testLabelsSource = tf.keras.utils.to_categorical(testLabelsSource, 10)
 
 trainingSetTarget = trainingSetTarget/255.
-if targetData == 'cifar100':
+if targetTask == 'cifar100':
     trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 100)
 else:
     trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
 testSetTarget = testSetTarget/255.
-if targetData == 'cifar100':
+if targetTask == 'cifar100':
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
 else:
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 10)
@@ -147,23 +147,23 @@ def buildModels():
         outputs=createModel(
             placeholder=inputPlaceholderSource,
             outputSize=10,
-            trsf_layer=trsf_layer)
+            transferedLayer=transferedLayer)
         ) 
     NNSourceCopy = tf.keras.Model(
         inputs=inputPlaceholderTarget,
         outputs=createModel(
             placeholder=inputPlaceholderTarget,
             outputSize=10,
-            trsf_layer=trsf_layer)
+            transferedLayer=transferedLayer)
         )
 
-    if targetData == 'cifar100':
+    if targetTask == 'cifar100':
         NNTarget  = tf.keras.Model(
             inputs=inputPlaceholderTarget, 
             outputs=createModel(
                 placeholder=inputPlaceholderTarget,
                 outputSize=100,
-                trsf_layer=trsf_layer,
+                transferedLayer=transferedLayer,
                 sourceModel=NNSourceCopy)
             ) 
         NNWitness = tf.keras.Model(
@@ -171,7 +171,7 @@ def buildModels():
             outputs=createModel(
                 placeholder=inputPlaceholderTarget, 
                 outputSize=100, 
-                trsf_layer=trsf_layer)
+                transferedLayer=transferedLayer)
             )
     else:
         NNTarget  = tf.keras.Model(
@@ -179,7 +179,7 @@ def buildModels():
             outputs=createModel(
                 placeholder=inputPlaceholderTarget,
                 outputSize=10,
-                trsf_layer=trsf_layer,
+                transferedLayer=transferedLayer,
                 sourceModel=NNSourceCopy)
             ) 
         NNWitness = tf.keras.Model(
@@ -187,7 +187,7 @@ def buildModels():
             outputs=createModel(
                 placeholder=inputPlaceholderTarget,
                 outputSize=10,
-                trsf_layer=trsf_layer)
+                transferedLayer=transferedLayer)
             )
 
     for l in NNSourceCopy.layers: l.trainable=False
@@ -246,7 +246,7 @@ dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
     # modelName : T for target, S for source, W for witness
     if (modelName == 'T'):
-        print("Training target model...")
+        print("\nTraining target model : start")
         NNSourceCopy.load_weights('./NNSource_w.h5')
         model = NNTarget
         trainingSet    = trainingSetTarget
@@ -256,12 +256,12 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         cb  = [recordTargetMetrics]
         for i in range(len(model.layers)):
             if (type(model.layers[i]).__name__ == "QuantaLayer"):
-                cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback())
+                cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
         bc  = batchSizeTarget
         NotLoadTarget=False
 
     elif (modelName == 'S'):
-        print("Training source model...")
+        print("\nTraining source model : start")
         model = NNSource
         trainingSet    = trainingSetSource
         trainingLabels = trainingLabelsSource
@@ -271,7 +271,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         bc  = batchSizeSource
         NotLoadSource=False
     else :
-        print("Training witness model...")
+        print("\nTraining witness model : start")
         model = NNWitness
         trainingSet    = trainingSetTarget
         trainingLabels = trainingLabelsTarget
@@ -290,14 +290,16 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
     else: 
         if fromPreviousTraining: model.load_weights(weights)
         model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb, batch_size=bc)
+    print("Training model : done\n")
 
-    print("Saving model parameters")
+    print("Saving model parameters : start")
     model.save_weights(weights)
+    print("Saving model parameters : done\n")
     return
 
 def test(modelName): 
     if (modelName == 'T'):
-        print("Testing target model...")
+        print("Testing target model : start")
         NNSourceCopy.load_weights("./NNSource_w.h5")
         model = NNTarget
         testSet    = testSetTarget
@@ -306,14 +308,14 @@ def test(modelName):
         snl     = NotLoadTarget
 
     elif (modelName == 'S'):
-        print("Testing source model...")
+        print("Testing source model : start")
         model = NNSource
         testSet    = testSetSource
         testLabels = testLabelsSource
         weights = "./NNSource_w.h5"
         snl     = NotLoadWitness
     else :
-        print("Testing witness model...")
+        print("Testing witness model : start")
         model = NNWitness
         testSet    = testSetTarget
         testLabels = testLabelsTarget
@@ -323,12 +325,8 @@ def test(modelName):
     if snl: model.load_weights(weights)
 
     metrics = model.evaluate(testSet, testLabels)
-
-    f = open(outputDir+'/metrics'+str(currentRun)+str(modelName)+'.txt', 'w')
-    f.write(str(metrics)+'\n')
-    f.close()
-    print("Final testing accuracy :" +str(metrics[1])+"\n")
-    return metrics[1] # accuracy
+    print("Testing model : done\n")
+    return metrics
 
 
 #################################################
@@ -337,7 +335,7 @@ def test(modelName):
 
 def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
     f = open(outputDir+'/expe_summary.txt', 'a')
-    export  = 'Target task: '  + targetData + '\n'
+    export  = 'Target task: '  + targetTask + '\n'
     export += '(Eta: '+str(eta)+ ')\n'
     export += 'Target task' + str(target_task) + '\nSource model accuracy :' + \
                      str(float(src_accuracy)) + \
@@ -353,27 +351,36 @@ def export_expe_summary(NNTarget, target_task, src_accuracy, target_accuracy):
 ##################### Main ######################
 #################################################
 
-def main1():
-    print("Target task: ", targetData)
+print("Python parameters :")
+print("\t Output directory : ", outputDir)
+if not os.path.exists(outputDir):
+    print('\t\t Creating non-existing output directory')
+    os.makedirs(outputDir)
+print("\t Current run : ", currentRun)
+print("\t Layer : ", transferedLayer)
+print("\t Target task : ", targetTask)
+print("\t Seed : ", SEED)
 
-    print('Creating output directory')
-    if not os.path.exists(outputDir): os.makedirs(outputDir)    
+train('T', augmentData, fromPreviousTraining)
+metrics_source = test('S')
+metrics_target = test('T')
 
-    print('Starting run ', currentRun)
+#TODO : Export data, weights and metrics
 
-    train('T', augmentData, fromPreviousTraining)
+f = open(outputDir+'/metrics'+str(currentRun)+'S.txt', 'w')
+f.write(str(metrics_source)+'\n')
+f.close()
+print("Final testing accuracy of source :" +str(metrics_source[1])+"\n")
 
-    #TODO
-    #writeFactors(quantas, currentRun, raw=False)
-    #writeFactors(raw_quantas, currentRun, raw=True)
+f = open(outputDir+'/metrics'+str(currentRun)+'T.txt', 'w')
+f.write(str(metrics_target)+'\n')
+f.close()
+print("Final testing accuracy of target :" +str(metrics_target[1])+"\n")
 
-    if currentRun == 0:
-        export_expe_summary(NNTarget, targetData, test('S'), test('T'))
+if currentRun == 0:
+    #metrics_X[1] -> accuracy
+    export_expe_summary(NNTarget, targetTask, metrics_source[1], metrics_target[1])
 
-    f = open(outputDir+'/all_target_metrics_' + str(currentRun) + '.txt','a')
-    for i in range(0, len(targetMetrics)): f.write(str(targetMetrics[i])+'\n')
-    f.close()
-    return
-
-if __name__=="__main__":
-    main1()
+f = open(outputDir+'/all_target_metrics_' + str(currentRun) + '.txt','a')
+for i in range(0, len(targetMetrics)): f.write(str(targetMetrics[i])+'\n')
+f.close()

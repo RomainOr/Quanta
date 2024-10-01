@@ -37,10 +37,10 @@ done
 
 # Echoing arguments to recap the user what he has typed
 echo 'Script parameters : '
-echo '\t Output directory: ' ${OUTDIR}
-echo '\t Number of repeat: ' ${REPEAT}
-echo '\t Layer: ' ${LAYER}
-echo '\t Target task: ' ${TASK}
+echo '\t Output directory : ' ${OUTDIR}
+echo '\t Number of repeat : ' ${REPEAT}
+echo '\t Layer : ' ${LAYER}
+echo '\t Target task : ' ${TASK}
 echo '\t Seed : ' ${SEED} '\n'
 
 echo 'Starting run(s) : '

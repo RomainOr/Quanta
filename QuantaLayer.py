@@ -35,7 +35,8 @@ class QuantaLayer(tf.keras.layers.Layer):
                 scalar_mul(quanta[0], inputs[0]), 
                 scalar_mul(quanta[1], inputs[1])))
 
-    def getCustomCallback(self):
+    def getCustomCallback(self, nbLayer):
+        self._customCallback.setNbrLayer(nbLayer)
         return self._customCallback
 
     def getQuantaWeights(self):
