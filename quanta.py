@@ -42,7 +42,7 @@ if SEED is not None and SEED > 0:
 #################################################
 ####### Managing arguments and parameters #######
 #################################################
-# TODO : Manage exceptions and defaults
+# TODO : Manage exceptions and defaults wrt shell script
 
 # Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 --seed=0
 # Cf. start_expe.sh
@@ -135,8 +135,7 @@ print("Normalizing data and creating one-hots : done\n")
 
 from models import compileModels
 
-(NNSource, NNSourceCopy, NNTarget),(NotLoadSource, NotLoadTarget) = \
-                  compileModels(targetTask, transferedLayer, optimizer, loss, metrics)
+NNSource, NNSourceCopy, NNTarget = compileModels(targetTask, transferedLayer, optimizer, loss, metrics)
 
 
 #################################################
@@ -190,7 +189,6 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
             if (type(model.layers[i]).__name__ == "QuantaLayer"):
                 cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
         bc  = batchSizeTarget
-        NotLoadTarget=False
     else :
         print("\nTraining source model : start")
         model = NNSource
@@ -200,7 +198,6 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         cb  = []
         noe = numberOfEpochsSource
         bc  = batchSizeSource
-        NotLoadSource=False
 
     if dataAugmentation: 
         dataAugmentationGenerator.fit(trainingSet, augment=True)
@@ -226,7 +223,6 @@ def test(modelName):
         testSet    = testSetTarget
         testLabels = testLabelsTarget
         weights = "./NNTarget_w.h5"
-        snl     = NotLoadTarget
 
     else :
         print("Testing source model : start")
@@ -234,10 +230,8 @@ def test(modelName):
         testSet    = testSetSource
         testLabels = testLabelsSource
         weights = "./NNSource_w.h5"
-        snl     = NotLoadSource
 
-    if snl: model.load_weights(weights)
-
+    model.load_weights(weights)
     metrics = model.evaluate(testSet, testLabels)
     print("Testing model : done\n")
     return metrics

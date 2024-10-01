@@ -118,5 +118,4 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
     
     print("Building source and target models : done\n")
     
-    return ((NNSource, NNSourceCopy, NNTarget),\
-              (NotLoadSource, NotLoadTarget))
+    return NNSource, NNSourceCopy, NNTarget
