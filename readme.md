@@ -57,9 +57,11 @@ has the following structure:
 ├── specified_output_dir
 │   ├── 0.txt
 │   ├── 0_raw.txt
-│   ├── metrics_0_S.txt
-│   ├── metrics_0_T.txt
-│   └── all_target_metrics_0.txt
+│   ├── ...
+│   ├── testing_metrics_of_target_0.txt
+│   ├── ...
+│   └── training_metrics_of_target_0.txt
+│   └── ...
 ├── ...
 ├── README.md
 └── ...
@@ -67,8 +69,10 @@ has the following structure:
 where ``0.txt`` (``r.txt``) contains the evolution of the measured transferability
 over the 60 epochs of run number 0 (run number ``r``). Files suffixed ``raw``
 contain the values of ``v`` (that is, before being transformed through a softmax).
-The file ``all_target_metrics_0.txt`` (resp. ``all_target_metrics_r.txt``)
-contains all the exported model metrics over the 60 epochs of run 0 (resp. ``r``).
+The file ``training_metrics_of_target_0.txt`` (resp. ``training_metrics_of_target_r.txt``)
+contains all the exported target model training metrics over the 60 epochs of run 0 (resp. ``r``).
+The file ``testing_metrics_of_target_0.txt`` (resp. ``testing_metrics_of_target_r.txt``)
+contains all the exported target model testing metrics over the 60 epochs of run 0 (resp. ``r``).
 
 ## Licence
 This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``

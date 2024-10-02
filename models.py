@@ -86,7 +86,7 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
             outputSize=10,
             layerToTranfer=layerToTranfer)
         )
-    sourceModel._name = "S"
+    sourceModel._name = "source"
 
     sourceModelCopy = tf.keras.Model(
         inputs=inputTarget,
@@ -95,7 +95,7 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
             outputSize=10,
             layerToTranfer=layerToTranfer)
         )
-    sourceModelCopy._name = "S_copy"
+    sourceModelCopy._name = "source_copy"
     for l in sourceModelCopy.layers: l.trainable=False
 
     if targetTask == 'cifar100':
@@ -111,7 +111,7 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
             layerToTranfer=layerToTranfer,
             sourceModel=sourceModelCopy)
         )
-    targetModel._name = "T"
+    targetModel._name = "target"
 
     sourceModel.compile(optimizer, loss, metrics)
     targetModel.compile(optimizer, loss, metrics)

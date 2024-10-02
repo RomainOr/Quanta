@@ -62,20 +62,20 @@ print("\t Target task : ", targetTask)
 print("\t Seed : ", SEED)
 print("\n")
 
+# User defined parameters
 trainSource = False
 nbOfSamples = 320
 
-# Parameters
-eta                   = 2e-4 # learning rate   
-etaDecay              = 1e-6 # weight decay
+learningRate          = 2e-4 
+weightDecay           = 1e-6
 numberOfEpochsSource  = 1
 numberOfEpochsTarget  = 1
 batchSizeSource       = 32    
 batchSizeTarget       = 32
 
-optimizer   = tf.keras.optimizers.Adam(eta, weight_decay=etaDecay)    #Optimizer for gradient descent
+optimizer   = tf.keras.optimizers.Adam(learningRate, weight_decay=weightDecay)    #Optimizer for gradient descent
 loss        = 'categorical_crossentropy'    #Loss giving gradients
-metrics     = ['accuracy', \
+metrics     = [tf.keras.metrics.CategoricalAccuracy(), \
                tf.keras.metrics.Precision(),\
                tf.keras.metrics.Recall(),   \
                tf.keras.metrics.FalsePositives(), \
@@ -123,19 +123,17 @@ print("Loading Data : done\n")
 
 print("Normalizing data and creating one-hots : start")
 trainingSetSource    = trainingSetSource/255.
-trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
 testSetSource    = testSetSource/255.
+trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
 testLabelsSource = tf.keras.utils.to_categorical(testLabelsSource, 10)
 
 trainingSetTarget = trainingSetTarget/255.
-if targetTask == 'cifar100':
-    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 100)
-else:
-    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
 testSetTarget = testSetTarget/255.
 if targetTask == 'cifar100':
+    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 100)
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
 else:
+    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
     testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 10)
 print("Normalizing data and creating one-hots : done\n")
 
@@ -158,13 +156,14 @@ from QuantaLayer import QuantaLayer
 
 # Data augmentation generator
 dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
-    rotation_range=45,              #randomly rotate images in the range (degrees, 0 to 180)
-    width_shift_range=0.1,          #randomly shifting image horizontally
-    height_shift_range=0.1,         #randomly shifting image vertically
+    # https://www.tensorflow.org/guide/keras/preprocessing_layers?hl=fr
+    rotation_range=45,              #randomly rotate images in the range (degrees, 0 to 180) - tf.keras.layers.RandomRotation
+    width_shift_range=0.1,          #randomly shifting image horizontally - tf.keras.layers.RandomTranslation
+    height_shift_range=0.1,         #randomly shifting image vertically - tf.keras.layers.RandomTranslation
     shear_range=0.1,                #set range for random shear
-    zoom_range=0.1,                 #set range for random zoom
-    horizontal_flip=True,           #randomly flip images horizontally
-    vertical_flip=True,             #randomly flip images vertially
+    zoom_range=0.1,                 #set range for random zoom - tf.keras.layers.RandomZoom
+    horizontal_flip=True,           #randomly flip images horizontally - tf.keras.layers.RandomFlip
+    vertical_flip=True,             #randomly flip images vertially - tf.keras.layers.RandomFlip
 )
 
 def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
@@ -177,7 +176,7 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         model = targetModel
         trainingSet    = trainingSetTarget
         trainingLabels = trainingLabelsTarget
-        weights = "./TargetModel_w.h5"
+        weights = outputDir + "/TargetModel_w.h5"
         noe = numberOfEpochsTarget
         cb  = [tf.keras.callbacks.LambdaCallback(
                 on_epoch_end=lambda epoch,logs: 
@@ -223,8 +222,7 @@ def test(modelName):
         model = targetModel
         testSet    = testSetTarget
         testLabels = testLabelsTarget
-        weights = "./TargetModel_w.h5"
-
+        weights = outputDir + "/TargetModel_w.h5"
     else :
         print("Testing source model : start")
         model = sourceModel
@@ -246,20 +244,22 @@ testingMetricsOfTarget = test('T')
 ############### Exporting metrics ###############
 #################################################
 
-#TODO : Export data, weights and metrics
-# task / parameters / accuracies / model.summary() / etc.
+s = 'model_run_'+str(currentRun)+'_layer_'+str(layerToTransfer)
 
-f = open(outputDir+'/training_metrics_of_target_' + str(currentRun) + '.txt','a')
-for i in range(0, len(trainingMetricsOfTarget)): f.write(str(trainingMetricsOfTarget[i])+'\n')
+f = open(outputDir+'/training_metrics_of_' + targetModel._name + '_' + s +'.jsonl', 'a')
+f.write(str(trainingMetricsOfTarget)+'\n')
 f.close()
 
-f = open(outputDir+'/testing_metrics_of_source_'+str(currentRun)+'.txt', 'a')
+f = open(outputDir+'/testing_metrics_of_' + sourceModel._name + '_' + s +'.jsonl', 'a')
 f.write(str(testingMetricsOfSource)+'\n')
 f.close()
 
-f = open(outputDir+'/testing_metrics_of_target_'+str(currentRun)+'.txt', 'a')
+f = open(outputDir+'/testing_metrics_of_' + targetModel._name + '_' + s +'.jsonl', 'a')
 f.write(str(testingMetricsOfTarget)+'\n')
 f.close()
 
-print("Final testing accuracy of source :" +str(testingMetricsOfSource['accuracy']))
-print("Final testing accuracy of target :" +str(testingMetricsOfTarget['accuracy']))
+sourceModel.save(outputDir + '/' + sourceModel._name + '_' + s +'.keras')
+targetModel.save(outputDir + '/' + targetModel._name + '_' + s +'.keras')
+
+print("Final testing categorical accuracy of source :" +str(testingMetricsOfSource['categorical_accuracy']))
+print("Final testing categorical accuracy of target :" +str(testingMetricsOfTarget['categorical_accuracy']))

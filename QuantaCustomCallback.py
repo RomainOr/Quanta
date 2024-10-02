@@ -31,7 +31,7 @@ class QuantaCustomCallback(tf.keras.callbacks.Callback):
             if self._nbLayer == -1 :
                 self._nbLayer = nbLayer
 
-        def on_epoch_begin(self, epoch, logs=None):
+        def on_train_begin(self, logs=None):
             print(self._monitorQuantaLayer(self.model.layers[self._nbLayer]))
 
         def on_epoch_end(self, epoch, logs=None):
