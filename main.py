@@ -69,9 +69,7 @@ nbOfSamples = 320
 learningRate          = 2e-4 
 weightDecay           = 1e-6
 numberOfEpochsSource  = 1
-numberOfEpochsTarget  = 1
-batchSizeSource       = 32    
-batchSizeTarget       = 32
+numberOfEpochsTarget  = 3
 
 optimizer   = tf.keras.optimizers.Adam(learningRate, weight_decay=weightDecay)    #Optimizer for gradient descent
 loss        = 'categorical_crossentropy'    #Loss giving gradients
@@ -185,7 +183,6 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         for i in range(len(model.layers)):
             if (type(model.layers[i]).__name__ == "QuantaLayer"):
                 cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
-        bc  = batchSizeTarget
     else :
         print("\nTraining source model : start")
         model = sourceModel
@@ -197,17 +194,16 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
                 on_epoch_end=lambda epoch,logs: 
                     trainingMetrics.update({epoch : logs})
                 )]
-        bc  = batchSizeSource
 
     if dataAugmentation: 
         dataAugmentationGenerator.fit(trainingSet, augment=True)
         if fromPreviousTraining: model.load_weights(weights)
         model.fit(
                 dataAugmentationGenerator.flow(
-                    trainingSet, trainingLabels, batch_size=bc), epochs=noe, callbacks=cb)
+                    trainingSet, trainingLabelsTarget), epochs=noe, callbacks=cb)
     else: 
         if fromPreviousTraining: model.load_weights(weights)
-        model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb, batch_size=bc)
+        model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb)
     print("Training model : done\n")
 
     print("Saving model parameters : start")
@@ -235,8 +231,15 @@ def test(modelName):
     print("Testing model : done\n")
     return metrics
 
-trainingMetricsOfTarget = train('T', augmentData, fromPreviousTraining)
 testingMetricsOfSource = test('S')
+
+# Important to reset states of each used metric as they are shared by both models
+for metric in metrics :
+    cast(tf.keras.metrics.Metric, metric).reset_states()
+# Potentially, be also carefull about that point :
+# https://stackoverflow.com/questions/65923011/keras-tensoflow-full-reset
+
+trainingMetricsOfTarget = train('T', augmentData, fromPreviousTraining)
 testingMetricsOfTarget = test('T')
 
 
