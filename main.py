@@ -69,17 +69,17 @@ nbOfSamples = 320
 learningRate          = 2e-4 
 weightDecay           = 1e-6
 numberOfEpochsSource  = 1
-numberOfEpochsTarget  = 3
+numberOfEpochsTarget  = 1
 
-optimizer   = tf.keras.optimizers.Adam(learningRate, weight_decay=weightDecay)    #Optimizer for gradient descent
-loss        = 'categorical_crossentropy'    #Loss giving gradients
-metrics     = [tf.keras.metrics.CategoricalAccuracy(), \
-               tf.keras.metrics.Precision(),\
-               tf.keras.metrics.Recall(),   \
-               tf.keras.metrics.FalsePositives(), \
-               tf.keras.metrics.FalseNegatives(), \
-               tf.keras.metrics.TruePositives(),  \
-               tf.keras.metrics.TrueNegatives(),  \
+optimizer   = tf.keras.optimizers.Adam(learningRate, weight_decay=weightDecay)
+loss        = tf.keras.losses.CategoricalCrossentropy()
+metrics     = [tf.keras.metrics.CategoricalAccuracy(), 
+               tf.keras.metrics.Precision(),
+               tf.keras.metrics.Recall(),   
+               tf.keras.metrics.FalsePositives(),
+               tf.keras.metrics.FalseNegatives(),
+               tf.keras.metrics.TruePositives(),
+               tf.keras.metrics.TrueNegatives(),
                tf.keras.metrics.TopKCategoricalAccuracy(k=3)]
 
 augmentData          = False   #Flow data augmentation during training
@@ -93,15 +93,18 @@ fromPreviousTraining = False   #False for training from scratch, True to start f
 print("Loading Data : start")
 (trainingSetSource, trainingLabelsSource),(testSetSource, testLabelsSource) = \
     tf.keras.datasets.cifar10.load_data()
-if targetTask == 'cifar10':
-    (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
-            tf.keras.datasets.cifar10.load_data()
-elif targetTask == 'cifar100':
+nb_of_source_classes = 10
+
+nb_of_target_classes = -1
+if targetTask == 'cifar100':
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar100.load_data()
+    nb_of_target_classes = 100
 else:
     (trainingSetTarget, trainingLabelsTarget),(testSetTarget, testLabelsTarget) = \
             tf.keras.datasets.cifar10.load_data()
+    nb_of_target_classes = 10
+input_shape = trainingSetTarget.shape[1:]
 
 trainingSetSource = trainingSetSource[:nbOfSamples]
 trainingLabelsSource = trainingLabelsSource[:nbOfSamples]
@@ -116,24 +119,16 @@ print("Loading Data : done\n")
 
 
 #################################################
-#### Normalizing data and creating one-hots #####
+############### Creating one-hots ###############
 #################################################
 
-print("Normalizing data and creating one-hots : start")
-trainingSetSource    = trainingSetSource/255.
-testSetSource    = testSetSource/255.
-trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, 10)
-testLabelsSource = tf.keras.utils.to_categorical(testLabelsSource, 10)
+print("Creating one-hots : start")
+trainingLabelsSource = tf.keras.utils.to_categorical(trainingLabelsSource, nb_of_source_classes)
+testLabelsSource = tf.keras.utils.to_categorical(testLabelsSource, nb_of_source_classes)
 
-trainingSetTarget = trainingSetTarget/255.
-testSetTarget = testSetTarget/255.
-if targetTask == 'cifar100':
-    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 100)
-    testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 100)
-else:
-    trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, 10)
-    testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, 10)
-print("Normalizing data and creating one-hots : done\n")
+trainingLabelsTarget = tf.keras.utils.to_categorical(trainingLabelsTarget, nb_of_target_classes)
+testLabelsTarget = tf.keras.utils.to_categorical(testLabelsTarget, nb_of_target_classes)
+print("Creating one-hots : done\n")
 
 
 #################################################
@@ -142,7 +137,7 @@ print("Normalizing data and creating one-hots : done\n")
 
 from models import compileModels
 
-sourceModel, sourceModelCopy, targetModel = compileModels(targetTask, layerToTransfer, optimizer, loss, metrics)
+sourceModel, sourceModelCopy, targetModel = compileModels(input_shape, targetTask, layerToTransfer, optimizer, loss, metrics, augmentData)
 
 
 #################################################
@@ -152,29 +147,17 @@ sourceModel, sourceModelCopy, targetModel = compileModels(targetTask, layerToTra
 from typing import cast
 from QuantaLayer import QuantaLayer
 
-# Data augmentation generator
-dataAugmentationGenerator = tf.keras.preprocessing.image.ImageDataGenerator(
-    # https://www.tensorflow.org/guide/keras/preprocessing_layers?hl=fr
-    rotation_range=45,              #randomly rotate images in the range (degrees, 0 to 180) - tf.keras.layers.RandomRotation
-    width_shift_range=0.1,          #randomly shifting image horizontally - tf.keras.layers.RandomTranslation
-    height_shift_range=0.1,         #randomly shifting image vertically - tf.keras.layers.RandomTranslation
-    shear_range=0.1,                #set range for random shear
-    zoom_range=0.1,                 #set range for random zoom - tf.keras.layers.RandomZoom
-    horizontal_flip=True,           #randomly flip images horizontally - tf.keras.layers.RandomFlip
-    vertical_flip=True,             #randomly flip images vertially - tf.keras.layers.RandomFlip
-)
-
-def train(modelName, dataAugmentation=False, fromPreviousTraining=False): 
+def train(modelName, fromPreviousTraining=False): 
     trainingMetrics = {}
     # Callback for exporting accuracy during training
     # modelName : T for target, S for source
     if (modelName == 'T'):
         print("\nTraining target model : start")
-        sourceModelCopy.load_weights('./SourceModel_w.h5')
+        sourceModelCopy.load_weights('./SourceModel.weights.h5')
         model = targetModel
         trainingSet    = trainingSetTarget
         trainingLabels = trainingLabelsTarget
-        weights = outputDir + "/TargetModel_w.h5"
+        weights = outputDir + "/TargetModel.weights.h5"
         noe = numberOfEpochsTarget
         cb  = [tf.keras.callbacks.LambdaCallback(
                 on_epoch_end=lambda epoch,logs: 
@@ -188,22 +171,20 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
         model = sourceModel
         trainingSet    = trainingSetSource
         trainingLabels = trainingLabelsSource
-        weights = "./SourceModel_w.h5"
+        weights = "./SourceModel.weights.h5"
         noe = numberOfEpochsSource
         cb  = [tf.keras.callbacks.LambdaCallback(
                 on_epoch_end=lambda epoch,logs: 
                     trainingMetrics.update({epoch : logs})
                 )]
+    
+    if fromPreviousTraining: 
+        model.load_weights(weights)
 
-    if dataAugmentation: 
-        dataAugmentationGenerator.fit(trainingSet, augment=True)
-        if fromPreviousTraining: model.load_weights(weights)
-        model.fit(
-                dataAugmentationGenerator.flow(
-                    trainingSet, trainingLabelsTarget), epochs=noe, callbacks=cb)
-    else: 
-        if fromPreviousTraining: model.load_weights(weights)
-        model.fit(trainingSet, trainingLabels, epochs=noe, callbacks=cb)
+    train_dataset = tf.data.Dataset.from_tensor_slices((trainingSet, trainingLabels))
+    train_dataset = train_dataset.batch(32).map(lambda x, y: (x, y))
+
+    model.fit(train_dataset, epochs=noe, callbacks=cb)
     print("Training model : done\n")
 
     print("Saving model parameters : start")
@@ -214,20 +195,24 @@ def train(modelName, dataAugmentation=False, fromPreviousTraining=False):
 def test(modelName): 
     if (modelName == 'T'):
         print("Testing target model : start")
-        sourceModelCopy.load_weights("./SourceModel_w.h5")
+        sourceModelCopy.load_weights("./SourceModel.weights.h5")
         model = targetModel
         testSet    = testSetTarget
         testLabels = testLabelsTarget
-        weights = outputDir + "/TargetModel_w.h5"
+        weights = outputDir + "/TargetModel.weights.h5"
     else :
         print("Testing source model : start")
         model = sourceModel
         testSet    = testSetSource
         testLabels = testLabelsSource
-        weights = "./SourceModel_w.h5"
+        weights = "./SourceModel.weights.h5"
 
     model.load_weights(weights)
-    metrics = model.evaluate(testSet, testLabels, return_dict=True)
+
+    test_dataset = tf.data.Dataset.from_tensor_slices((testSet, testLabels))
+    test_dataset = test_dataset.batch(32).map(lambda x, y: (x, y))
+    
+    metrics = model.evaluate(test_dataset, return_dict=True)
     print("Testing model : done\n")
     return metrics
 
@@ -235,11 +220,11 @@ testingMetricsOfSource = test('S')
 
 # Important to reset states of each used metric as they are shared by both models
 for metric in metrics :
-    cast(tf.keras.metrics.Metric, metric).reset_states()
+    cast(tf.keras.metrics.Metric, metric).reset_state()
 # Potentially, be also carefull about that point :
 # https://stackoverflow.com/questions/65923011/keras-tensoflow-full-reset
 
-trainingMetricsOfTarget = train('T', augmentData, fromPreviousTraining)
+trainingMetricsOfTarget = train('T', fromPreviousTraining)
 testingMetricsOfTarget = test('T')
 
 

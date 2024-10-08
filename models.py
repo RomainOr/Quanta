@@ -33,13 +33,26 @@ def convBlock(pInput, size, layerToTranfer=None, outputOfSourceLayers=[]):
 ####### Create full model using convblocks ######
 #################################################
 
-def createModel(pInput, outputSize, layerToTranfer, sourceModel=None):
+def createModel(pInput, outputSize, layerToTranfer, sourceModel=None, augmentData=False):
+
     outputOfSourceLayers = []
-    if (sourceModel != None):
+    if sourceModel is not None:
         outputOfSourceLayers = [sourceModel.layers[i].output \
                 for i in range(len(sourceModel.layers))   \
                 if type(sourceModel.layers[i]).__name__ in ['Conv2D', 'Dense']]
-    x = pInput
+        
+    x = tf.keras.layers.Rescaling(1.0 / 255)(pInput)
+
+    if sourceModel is not None and augmentData:
+        x = tf.keras.layers.RandomFlip(mode="horizontal_and_vertical")(x)
+        x = tf.keras.layers.RandomTranslation(
+                height_factor=0.1,
+                width_factor=0.1)(x)
+        x = tf.keras.layers.RandomRotation(
+                factor=0.1)(x)
+        x = tf.keras.layers.RandomZoom(
+                height_factor=0.1,
+                width_factor=None)(x)
 
     if (outputOfSourceLayers != [] and (layerToTranfer == 0 or layerToTranfer == 1)):
         x = convBlock(x, 64, layerToTranfer, [outputOfSourceLayers[0], outputOfSourceLayers[1]])
@@ -72,12 +85,12 @@ def createModel(pInput, outputSize, layerToTranfer, sourceModel=None):
 ####### Configure the models for training #######
 #################################################
 
-def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
+def compileModels(input_shape, targetTask, layerToTranfer, optimizer, loss, metrics, augmentData):
 
     print("Building source and target models : start")
 
-    inputSource = tf.keras.Input([32, 32, 3], name='inputSource')
-    inputTarget = tf.keras.Input([32, 32, 3], name='inputTarget')
+    inputSource = tf.keras.Input(input_shape, name='inputSource')
+    inputTarget = tf.keras.Input(input_shape, name='inputTarget')
     
     sourceModel = tf.keras.Model(
         inputs=inputSource,
@@ -109,12 +122,13 @@ def compileModels(targetTask, layerToTranfer, optimizer, loss, metrics):
             pInput=inputTarget,
             outputSize=outputSize,
             layerToTranfer=layerToTranfer,
-            sourceModel=sourceModelCopy)
+            sourceModel=sourceModelCopy,
+            augmentData=augmentData)
         )
     targetModel._name = "target"
 
-    sourceModel.compile(optimizer, loss, metrics)
-    targetModel.compile(optimizer, loss, metrics)
+    sourceModel.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    targetModel.compile(optimizer=optimizer, loss=loss, metrics=metrics)
     
     print("Building source and target models : done\n")
     

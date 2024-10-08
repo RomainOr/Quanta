@@ -2,4 +2,4 @@ __pycache__/
 .DS_Store
 *.jsonl
 *.keras
-TargetModel_w.h5
+TargetModel.weights.h5
