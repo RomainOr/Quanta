@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.ops import split, reshape
 from tensorflow.math import add, scalar_mul
 
-from QuantaCustomCallback import QuantaCustomCallback
+from quanta_custom_callback import QuantaCustomCallback
 
 
 class QuantaLayer(Layer):
@@ -50,7 +50,8 @@ class QuantaLayer(Layer):
         layer."""
         if self._position_of_transfered_layer == -1:
             self._position_of_transfered_layer = position_of_transfered_layer
-            self._custom_callback.setNbrLayer(position_of_transfered_layer)
+            self._custom_callback.set_position_of_transfered_layer(
+                position_of_transfered_layer)
         return self._custom_callback
 
     def get_quanta_weights(self):
