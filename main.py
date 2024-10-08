@@ -145,7 +145,7 @@ sourceModel, sourceModelCopy, targetModel = compileModels(input_shape, targetTas
 #################################################
 
 from typing import cast
-from QuantaLayer import QuantaLayer
+from quanta_layer import QuantaLayer
 
 def train(modelName, fromPreviousTraining=False): 
     trainingMetrics = {}
@@ -165,7 +165,7 @@ def train(modelName, fromPreviousTraining=False):
                 )]
         for i in range(len(model.layers)):
             if (type(model.layers[i]).__name__ == "QuantaLayer"):
-                cb.append(cast(QuantaLayer, model.layers[i]).getCustomCallback(i))
+                cb.append(cast(QuantaLayer, model.layers[i]).get_custom_callback(i))
     else :
         print("\nTraining source model : start")
         model = sourceModel

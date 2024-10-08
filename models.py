@@ -1,5 +1,4 @@
-import sys
-from QuantaLayer import QuantaLayer
+from quanta_layer import QuantaLayer
 
 import tensorflow as tf
 
