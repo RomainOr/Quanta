@@ -17,7 +17,7 @@ case $i in
     LAYER="${i#*=}"
     shift
     ;;
-    -t=*|--targetTask=*)
+    -t=*|--target_task=*)
     TASK="${i#*=}"
     shift
     ;;
@@ -26,7 +26,7 @@ case $i in
     shift
     ;;
     -h|--help)
-    echo "Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10 -s|--seed=0"
+    echo "Usage: ./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--target_task=cifar10 -s|--seed=0"
 	exit 1
     shift
     ;;

@@ -47,7 +47,7 @@ class QuantaLayer(Layer):
 
     def get_custom_callback(self, position_of_transfered_layer):
         """Return the associated custom callback and set the internal position of transfered 
-        layer."""
+        layer given in argument."""
         if self._position_of_transfered_layer == -1:
             self._position_of_transfered_layer = position_of_transfered_layer
             self._custom_callback.set_position_of_transfered_layer(

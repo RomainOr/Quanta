@@ -40,13 +40,13 @@ The code was developped using [Python 3](https://www.python.org/downloads/) and 
 ## Running the code
 Use the bash script ``start_expe.sh`` to start an experiment:
 
-``./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--targetTask=cifar10``
+``./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--target_task=cifar10``
 
 Options:
 * ``-o|--outdir=`` the output directory where the results of the experiements are written
 * ``-r|--repeat=`` for executing x runs of 60 epochs
 * ``-l|--layer=`` the layer whose transferability is assessed (0 to 6)
-* ``-t|--targetTask=`` 'cifar10' or 'cifar100'
+* ``-t|--target_task=`` 'cifar10' or 'cifar100'
 * ``--seed=`` for setting the seed to manage determinism
 
 ## Exported data
