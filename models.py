@@ -43,7 +43,7 @@ def create_model(inputs, size_of_outputs, layer_to_tranfer, source_model=None, a
     if source_model is not None:
         outputs_of_block_source_layer = [
             layer.output
-            for _, layer in enumerate(source_model.layers)
+            for layer in source_model.layers
             if type(layer).__name__ in ('Conv2D', 'Dense')]
 
     x = tf.keras.layers.Rescaling(1.0 / 255)(inputs)
@@ -120,6 +120,7 @@ def compile_models(
             layer_to_tranfer=layer_to_tranfer)
     )
     copy_of_source_model._name = "source_copy"
+    copy_of_source_model.load_weights('./SourceModel.weights.h5')
     for l in copy_of_source_model.layers:
         l.trainable = False
 

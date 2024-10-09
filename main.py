@@ -146,16 +146,12 @@ source_model, copy_of_source_model, target_model = compile_models(
 ######### Model training and evaluation #########
 #################################################
 
-def train(model_name, train_from_previous_training=False):
+def train(model, training_set, training_labels, nb_of_epoch, 
+          save_weights_path, train_from_previous_training=False):
     """Train a model."""
+
+    print("Training " + model._name + " model : start")
     training_metrics = {}
-    print("Training " + model_name + " model : start")
-    copy_of_source_model.load_weights('./SourceModel.weights.h5')
-    model = target_model
-    training_set = training_set_target
-    training_labels = training_labels_target
-    weights = output_dir + "/TargetModel.weights.h5"
-    noe = NB_OF_TARGET_EPOCHS
     cb = [tf.keras.callbacks.LambdaCallback(
         on_epoch_end=lambda epoch, logs:
         training_metrics.update({epoch: logs})
@@ -165,22 +161,22 @@ def train(model_name, train_from_previous_training=False):
             cb.append(cast(QuantaLayer, layer).get_custom_callback(idx))
 
     if train_from_previous_training:
-        model.load_weights(weights)
+        model.load_weights(save_weights_path)
 
     train_dataset = tf.data.Dataset.from_tensor_slices(
         (training_set, training_labels))
     train_dataset = train_dataset.batch(32).map(lambda x, y: (x, y))
 
-    model.fit(train_dataset, epochs=noe, callbacks=cb)
-    print("Training " + model_name + " model : done\n")
+    model.fit(train_dataset, epochs=nb_of_epoch, callbacks=cb)
+    print("Training " + model._name + " model : done\n")
 
     print("Saving model parameters : start")
-    model.save_weights(weights)
+    model.save_weights(save_weights_path)
     print("Saving model parameters : done\n")
     return training_metrics
 
 
-def test(model, test_set, test_labels, weights, copy_of_model=None, copy_of_weights=None):
+def test(model, test_set, test_labels, weights):
     """Test a model"""
     
     print("Testing " + model._name + " model : start")
@@ -204,14 +200,18 @@ for metric in METRICS:
 # Potentially, be also carefull about that point :
 # https://stackoverflow.com/questions/65923011/keras-tensoflow-full-reset
 
-training_metrics_of_target = train(target_model._name, TRAIN_FROM_PREVIOUS_TRAINING)
+training_metrics_of_target = train(
+    model = target_model,
+    training_set = training_set_target,
+    training_labels = training_labels_target,
+    nb_of_epoch = NB_OF_TARGET_EPOCHS,
+    save_weights_path = output_dir + "/TargetModel.weights.h5",
+    train_from_previous_training = TRAIN_FROM_PREVIOUS_TRAINING)
 testing_metrics_of_target = test(
     model = target_model,
     test_set = test_set_target,
     test_labels = test_labels_target,
-    weights = output_dir + "/TargetModel.weights.h5",
-    copy_of_model = copy_of_source_model,
-    copy_of_weights = "./SourceModel.weights.h5")
+    weights = output_dir + "/TargetModel.weights.h5")
 
 
 #################################################
