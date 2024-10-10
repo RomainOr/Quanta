@@ -75,7 +75,8 @@ def create_model(inputs, size_of_outputs, layer_to_transfer=None, source_model=N
     if (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
         x = build_block(x, 512, layer_to_transfer, [
             outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]])
-    x = build_block(x, 512)
+    else:
+        x = build_block(x, 512)
 
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(2048)(x)
@@ -108,6 +109,8 @@ def build_and_compile_model(
         weights_path=None):
     """Build and compile one model."""
 
+    print("Building " + model_name + " model : start")
+
     if source_model is not None and layer_to_transfer is not None:
         inputs = source_model.get_layer(index=0).output
     else:
@@ -130,5 +133,7 @@ def build_and_compile_model(
             l.trainable = False
 
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+    print("Building " + model_name + " model : done\n")
 
     return model

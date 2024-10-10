@@ -139,7 +139,6 @@ print("Creating one-hots : done\n")
 ######### Building and compiling models #########
 #################################################
 
-print("Building source and target models : start")
 source_model = build_and_compile_model(
     model_name = "source",
     input_shape = input_shape,
@@ -159,7 +158,6 @@ target_model = build_and_compile_model(
     augment_data = AUGMENT_DATA,
     layer_to_transfer = layer_to_transfer,
     source_model = source_model)
-print("Building source and target models : done\n")
 
 
 #################################################
