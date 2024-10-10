@@ -36,7 +36,7 @@ def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_lay
 ####### Create full model using convblocks ######
 #################################################
 
-def create_model(inputs, size_of_outputs, layer_to_tranfer, source_model=None, augment_data=False):
+def create_model(inputs, size_of_outputs, layer_to_transfer=None, source_model=None, augment_data=False):
     """Build a model made from convolutionnal blocks from *build_block* function."""
 
     outputs_of_block_source_layer = []
@@ -60,26 +60,26 @@ def create_model(inputs, size_of_outputs, layer_to_tranfer, source_model=None, a
             height_factor=0.1,
             width_factor=None)(x)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_tranfer in (0, 1))):
-        x = build_block(x, 64, layer_to_tranfer, [
+    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (0, 1))):
+        x = build_block(x, 64, layer_to_transfer, [
             outputs_of_block_source_layer[0], outputs_of_block_source_layer[1]])
     else:
         x = build_block(x, 64)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_tranfer in (2, 3))):
-        x = build_block(x, 128, layer_to_tranfer, [
+    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (2, 3))):
+        x = build_block(x, 128, layer_to_transfer, [
             outputs_of_block_source_layer[2], outputs_of_block_source_layer[3]])
     else:
         x = build_block(x, 128)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_tranfer in (4, 5))):
-        x = build_block(x, 512, layer_to_tranfer, [
+    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
+        x = build_block(x, 512, layer_to_transfer, [
             outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]])
     x = build_block(x, 512)
 
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(2048)(x)
-    if (outputs_of_block_source_layer != [] and layer_to_tranfer == 6):
+    if (outputs_of_block_source_layer != [] and layer_to_transfer == 6):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[6], x])
     else:
         x = tf.keras.layers.Activation('elu')(x)
@@ -91,53 +91,44 @@ def create_model(inputs, size_of_outputs, layer_to_tranfer, source_model=None, a
 
 
 #################################################
-####### Configure the models for training #######
+######### Configure models for training #########
 #################################################
 
-def compile_models(
-        input_shape, output_shape, layer_to_tranfer, optimizer, loss, metrics, augment_data):
-    """Compile all models needed for a transfer."""
+def build_and_compile_model(
+        model_name,
+        input_shape,
+        output_shape,
+        optimizer,
+        loss,
+        metrics,
+        augment_data=False,
+        layer_to_transfer=None,
+        source_model=None,
+        trainable=True,
+        weights_path=None):
+    """Build and compile one model."""
 
-    print("Building source and target models : start")
+    if source_model is not None and layer_to_transfer is not None:
+        inputs = source_model.get_layer(index=0).output
+    else:
+        inputs = tf.keras.Input(input_shape)
 
-    input_source = tf.keras.Input(input_shape, name='input_source')
-    input_target = tf.keras.Input(input_shape, name='input_target')
-
-    source_model = tf.keras.Model(
-        inputs=input_source,
+    model = tf.keras.Model(
+        inputs=inputs,
         outputs=create_model(
-            inputs=input_source,
-            size_of_outputs=10,
-            layer_to_tranfer=layer_to_tranfer)
-    )
-    source_model._name = "source"
-
-    copy_of_source_model = tf.keras.Model(
-        inputs=input_target,
-        outputs=create_model(
-            inputs=input_target,
-            size_of_outputs=10,
-            layer_to_tranfer=layer_to_tranfer)
-    )
-    copy_of_source_model._name = "source_copy"
-    copy_of_source_model.load_weights('./SourceModel.weights.h5')
-    for l in copy_of_source_model.layers:
-        l.trainable = False
-
-    target_model = tf.keras.Model(
-        inputs=input_target,
-        outputs=create_model(
-            inputs=input_target,
+            inputs=inputs,
             size_of_outputs=output_shape,
-            layer_to_tranfer=layer_to_tranfer,
-            source_model=copy_of_source_model,
+            layer_to_transfer=layer_to_transfer,
+            source_model=source_model,
             augment_data=augment_data)
     )
-    target_model._name = "target"
+    model._name = model_name
 
-    source_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-    target_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    if not trainable and weights_path is not None:
+        model.load_weights(weights_path)   
+        for l in model.layers:
+            l.trainable = False
 
-    print("Building source and target models : done\n")
+    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
-    return source_model, copy_of_source_model, target_model
+    return model

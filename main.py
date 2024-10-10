@@ -20,7 +20,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from quanta_layer import QuantaLayer
-from models import compile_models
+from models import build_and_compile_model
 from typing import cast
 
 
@@ -95,18 +95,19 @@ TRAIN_FROM_PREVIOUS_TRAINING = False
 #################################################
 
 print("Loading Data : start")
+source_output_shape = 10
 (training_set_source, training_labels_source), (test_set_source, test_labels_source) = \
     tf.keras.datasets.cifar10.load_data()
 
-output_shape = -1
+target_output_shape = -1
 if target_task == 'cifar100':
     (training_set_target, training_labels_target), (test_set_target, test_labels_target) = \
         tf.keras.datasets.cifar100.load_data()
-    output_shape = 100
+    target_output_shape = 100
 else:
     (training_set_target, training_labels_target), (test_set_target, test_labels_target) = \
         tf.keras.datasets.cifar10.load_data()
-    output_shape = 10
+    target_output_shape = 10
 input_shape = training_set_target.shape[1:]
 
 training_set_source = training_set_source[:NB_OF_SAMPLES]
@@ -138,8 +139,27 @@ print("Creating one-hots : done\n")
 ######### Building and compiling models #########
 #################################################
 
-source_model, copy_of_source_model, target_model = compile_models(
-    input_shape, output_shape, layer_to_transfer, OPTIMIZER, LOSS, METRICS, AUGMENT_DATA)
+print("Building source and target models : start")
+source_model = build_and_compile_model(
+    model_name = "source",
+    input_shape = input_shape,
+    output_shape = source_output_shape,
+    optimizer = OPTIMIZER,
+    loss = LOSS,
+    metrics = METRICS,
+    trainable = False,
+    weights_path="./SourceModel.weights.h5")
+target_model = build_and_compile_model(
+    model_name = "target",
+    input_shape = input_shape,
+    output_shape = target_output_shape,
+    optimizer = OPTIMIZER,
+    loss = LOSS,
+    metrics = METRICS,
+    augment_data = AUGMENT_DATA,
+    layer_to_transfer = layer_to_transfer,
+    source_model = source_model)
+print("Building source and target models : done\n")
 
 
 #################################################
