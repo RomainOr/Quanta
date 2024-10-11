@@ -236,30 +236,36 @@ testing_metrics_of_target = test(
 ############### Exporting metrics ###############
 #################################################
 
-S = 'model_run_'+str(current_run)+'_layer_'+str(layer_to_transfer)
+def export_metrics(
+    output_dir,
+    current_run,
+    layer_to_transfer,
+    model,
+    metrics_of_model,
+    save_model,
+    string
+    ):
+    '''Export metrics'''
+    tmp_string = model._name + '_model_run_'+str(current_run)+'_layer_'+str(layer_to_transfer)
+    f = open(
+        file=output_dir+'/' + string + tmp_string + '.jsonl',
+        mode='a',
+        encoding='UTF-8'
+    )
+    f.write(str(metrics_of_model)+'\n')
+    f.close()
 
-f = open(file=output_dir+'/training_metrics_of_' + target_model._name + '_' + S + '.jsonl',
-         mode='a',
-         encoding='UTF-8')
-f.write(str(training_metrics_of_target)+'\n')
-f.close()
+    if save_model:
+        model.save(output_dir + '/' + tmp_string + '.keras')
 
-f = open(file=output_dir+'/testing_metrics_of_' + source_model._name + '_' + S + '.jsonl',
-         mode='a',
-         encoding='UTF-8')
-f.write(str(testing_metrics_of_source)+'\n')
-f.close()
-
-f = open(file=output_dir+'/testing_metrics_of_' + target_model._name + '_' + S + '.jsonl',
-         mode='a',
-         encoding='UTF-8')
-f.write(str(testing_metrics_of_target)+'\n')
-f.close()
-
-source_model.save(output_dir + '/' + source_model._name + '_' + S + '.keras')
-target_model.save(output_dir + '/' + target_model._name + '_' + S + '.keras')
+export_metrics(output_dir, current_run, layer_to_transfer, 
+               target_model, training_metrics_of_target, False, "training_metrics_of_")
+export_metrics(output_dir, current_run, layer_to_transfer, 
+               target_model, testing_metrics_of_target, True, "testing_metrics_of_")
+export_metrics(output_dir, current_run, layer_to_transfer, 
+               source_model, testing_metrics_of_source, True, "testing_metrics_of_")
 
 print("Final testing categorical accuracy of source :" +
-      str(testing_metrics_of_source['categorical_accuracy']))
+    str(testing_metrics_of_source['categorical_accuracy']))
 print("Final testing categorical accuracy of target :" +
-      str(testing_metrics_of_target['categorical_accuracy']))
+    str(testing_metrics_of_target['categorical_accuracy']))
