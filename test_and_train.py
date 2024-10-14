@@ -7,6 +7,29 @@ from quanta_layer import QuantaLayer
 
 
 #################################################
+##### Getter of tensorflow training config ######
+#################################################
+
+def get_training_config(learning_rate=2e-4, weight_decay=1e-6):
+    """Return the optimizer, loss and metrics used to train or test a model."""
+
+    optimizer = tf.keras.optimizers.Adam(
+        learning_rate = learning_rate,
+        weight_decay = weight_decay)
+    loss = tf.keras.losses.CategoricalCrossentropy()
+    metrics = [
+        tf.keras.metrics.CategoricalAccuracy(),
+        tf.keras.metrics.Precision(),
+        tf.keras.metrics.Recall(),
+        tf.keras.metrics.FalsePositives(),
+        tf.keras.metrics.FalseNegatives(),
+        tf.keras.metrics.TruePositives(),
+        tf.keras.metrics.TrueNegatives(),
+        tf.keras.metrics.TopKCategoricalAccuracy(k=3)]
+    return {'optimizer':optimizer, 'loss':loss, 'metrics':metrics}
+
+
+#################################################
 ######### Model training and evaluation #########
 #################################################
 
@@ -42,7 +65,7 @@ def train(model, training_set, training_labels, nb_of_epoch,
 
 def test(model, test_set, test_labels, weights):
     """Test a model"""
-    
+
     print("Testing " + model._name + " model : start")
     model.load_weights(weights)
     test_dataset = tf.data.Dataset.from_tensor_slices((test_set, test_labels))
@@ -58,6 +81,7 @@ def test(model, test_set, test_labels, weights):
 
 def reset_metrics(metrics):
     """Reset states of each used metric in metrics"""
+
     for metric in metrics:
         cast(tf.keras.metrics.Metric, metric).reset_state()
 
@@ -75,8 +99,8 @@ def export_metrics(
     save_model,
     string
     ):
-    '''Export metrics'''
-    
+    """Export metrics to a text file."""
+
     tmp_string = model._name + '_model_run_'+str(current_run)+'_layer_'+str(layer_to_transfer)
     f = open(
         file=output_dir + string + tmp_string + '.jsonl',

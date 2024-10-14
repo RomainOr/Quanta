@@ -14,6 +14,7 @@ def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_lay
     Arguments *layer_to_tranfer* and *outputs_of_block_source_layer* can respectively indicate 
     which layer has to be transfered through a Quanta layer.
     """
+
     x = inputs
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
     if (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
@@ -52,7 +53,7 @@ def create_model(inputs, size_of_outputs, layer_to_transfer=None, source_model=N
 
     x = tf.keras.layers.Rescaling(1.0 / 255)(inputs)
 
-    if source_model is not None and augment_data:
+    if augment_data:
         x = tf.keras.layers.RandomFlip(
             mode="horizontal_and_vertical")(x)
         x = tf.keras.layers.RandomTranslation(

@@ -9,6 +9,7 @@ import tensorflow as tf
 
 def load_dataset(task, nb_of_samples=None, create_one_hots=True):
     """Load a dataset from tensorflow keras and return it with input and output shapes."""
+    
     output_shape = -1
     if task == 'cifar100':
         print("Loading Data of (" + task + ") : start")
@@ -23,7 +24,7 @@ def load_dataset(task, nb_of_samples=None, create_one_hots=True):
     
     input_shape = training_set.shape[1:]
 
-    if nb_of_samples is not None:
+    if nb_of_samples is not None and nb_of_samples > 0:
         training_set = training_set[:nb_of_samples]
         training_labels = training_labels[:nb_of_samples]
         test_set = test_set[:nb_of_samples]

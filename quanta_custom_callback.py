@@ -15,6 +15,8 @@ class QuantaCustomCallback(Callback):
         self._position_of_transfered_layer = -1
 
     def _monitor_quanta_layer(self, layer):
+        """Build the string to display about values of a quanta layer and store 
+        computed weights of quanta and value of source quanta within the class."""
         s = '\n\t Quanta layer ' + \
             str(self._position_of_transfered_layer) + ' :\n'
         # Collect information to display
@@ -23,7 +25,7 @@ class QuantaCustomCallback(Callback):
         quantas = softmax(quanta_weights)
         s += '\t\t Quanta value of Source : ' + str(quantas.numpy()[0]) + '\n'
         s += '\t\t Quanta value of Target : ' + str(quantas.numpy()[1]) + '\n'
-        # Store computed wieghts of quanta and value of source quanta
+        # Store computed weights of quanta and value of source quanta
         self._quanta_weights.append(quanta_weights)
         self._quantas.append(quantas)
         return s
