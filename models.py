@@ -5,6 +5,10 @@ import tensorflow as tf
 from quanta_layer import QuantaLayer
 
 
+#################################################
+#### Building blocks of convolutionnal layers ###
+#################################################
+
 def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_layer=None):
     """Build a block of two convolutionnal layers within a tensorflow model of given size. \n
     Arguments *layer_to_tranfer* and *outputs_of_block_source_layer* can respectively indicate 

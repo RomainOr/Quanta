@@ -1,0 +1,100 @@
+./start_expe.sh -o=./expe -r=-1 -l=0 -t=cifar10 --seed=42
+
+Script parameters : 
+	 Output directory :  ./expe
+	 Number of repeat :  -1
+	 Layer :  0
+	 Target task :  cifar10
+	 Seed :  42 
+
+Starting run(s) : 
+
+	 Layer  0  - Run number 1 
+
+Python parameters :
+	 Output directory :  ./expe
+		 Creating non-existing output directory
+	 Current run :  0
+	 Layer :  0
+	 Target task :  cifar10
+	 Seed :  42
+
+
+Loading Data : start
+Loading Data : done
+
+Creating one-hots : start
+Creating one-hots : done
+
+Building source model : start
+Building source model : done
+
+Building target model : start
+Building target model : done
+
+Testing source model : start
+313/313 ━━━━━━━━━━━━━━━━━━━━ 100s 316ms/step - categorical_accuracy: 0.8403 - false_negatives: 979.8981 - false_positives: 567.3153 - loss: 0.5143 - precision: 0.8781 - recall: 0.8066 - top_k_categorical_accuracy: 0.9661 - true_negatives: 44790.8516 - true_positives: 4059.8982
+Testing source model : done
+
+Training target model : start
+
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.1 -1.1]
+		 Quanta value of Source : 0.90024954
+		 Quanta value of Target : 0.09975048
+
+Epoch 1/5
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - categorical_accuracy: 0.3782 - false_negatives: 16078.4219 - false_positives: 10101.6074 - loss: 2.7666 - precision: 0.4224 - recall: 0.3215 - top_k_categorical_accuracy: 0.7006 - true_negatives: 215114.2969 - true_positives: 8945.5684  
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.1307845 -1.1307845]
+		 Quanta value of Source : 0.90564376
+		 Quanta value of Target : 0.0943562
+
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 4825s 3s/step - categorical_accuracy: 0.3783 - false_negatives: 16087.0684 - false_positives: 10106.9512 - loss: 2.7660 - precision: 0.4224 - recall: 0.3215 - top_k_categorical_accuracy: 0.7006 - true_negatives: 215252.6875 - true_positives: 8952.8906
+
+Epoch 2/5
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - categorical_accuracy: 0.6064 - false_negatives: 10934.7705 - false_positives: 6715.6724 - loss: 1.2601 - precision: 0.6714 - recall: 0.5557 - top_k_categorical_accuracy: 0.8739 - true_negatives: 218500.2344 - true_positives: 14089.2188  
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.1548411 -1.1548411]
+		 Quanta value of Source : 0.9096758
+		 Quanta value of Target : 0.09032426
+
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 5046s 3s/step - categorical_accuracy: 0.6064 - false_negatives: 10941.2383 - false_positives: 6719.6108 - loss: 1.2601 - precision: 0.6714 - recall: 0.5557 - top_k_categorical_accuracy: 0.8739 - true_negatives: 218640.0156 - true_positives: 14098.7217
+
+Epoch 3/5
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - categorical_accuracy: 0.6793 - false_negatives: 9071.5439 - false_positives: 5516.9346 - loss: 0.9828 - precision: 0.7396 - recall: 0.6340 - top_k_categorical_accuracy: 0.9100 - true_negatives: 219698.9688 - true_positives: 15952.4463   
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.1752474 -1.1752474]
+		 Quanta value of Source : 0.9129735
+		 Quanta value of Target : 0.08702644
+
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 4934s 3s/step - categorical_accuracy: 0.6794 - false_negatives: 9077.0459 - false_positives: 5520.2480 - loss: 0.9828 - precision: 0.7396 - recall: 0.6340 - top_k_categorical_accuracy: 0.9100 - true_negatives: 219839.3906 - true_positives: 15962.9131
+
+Epoch 4/5
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - categorical_accuracy: 0.7323 - false_negatives: 7737.9746 - false_positives: 4643.4927 - loss: 0.8050 - precision: 0.7872 - recall: 0.6900 - top_k_categorical_accuracy: 0.9366 - true_negatives: 220572.4219 - true_positives: 17286.0156   
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.193554 -1.193554]
+		 Quanta value of Source : 0.9158389
+		 Quanta value of Target : 0.084161066
+
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 5184s 3s/step - categorical_accuracy: 0.7323 - false_negatives: 7742.7183 - false_positives: 4646.2959 - loss: 0.8050 - precision: 0.7872 - recall: 0.6900 - top_k_categorical_accuracy: 0.9366 - true_negatives: 220713.3281 - true_positives: 17297.2402
+
+Epoch 5/5
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 0s 3s/step - categorical_accuracy: 0.7705 - false_negatives: 6639.3281 - false_positives: 4083.3806 - loss: 0.6885 - precision: 0.8161 - recall: 0.7329 - top_k_categorical_accuracy: 0.9486 - true_negatives: 221132.5312 - true_positives: 18384.6621   
+	 Quanta layer 5 :
+		 Quanta weights : [ 1.2101244 -1.2101244]
+		 Quanta value of Source : 0.9183584
+		 Quanta value of Target : 0.0816416
+
+1563/1563 ━━━━━━━━━━━━━━━━━━━━ 4997s 3s/step - categorical_accuracy: 0.7705 - false_negatives: 6643.4033 - false_positives: 4085.8933 - loss: 0.6885 - precision: 0.8161 - recall: 0.7329 - top_k_categorical_accuracy: 0.9486 - true_negatives: 221273.7344 - true_positives: 18396.5547
+Training target model : done
+
+Saving model parameters : start
+Saving model parameters : done
+
+Testing target model : start
+313/313 ━━━━━━━━━━━━━━━━━━━━ 111s 353ms/step - categorical_accuracy: 0.7879 - false_negatives: 1243.1656 - false_positives: 759.1274 - loss: 0.6604 - precision: 0.8336 - recall: 0.7528 - top_k_categorical_accuracy: 0.9547 - true_negatives: 44599.0391 - true_positives: 3796.6306
+Testing target model : done
+
+Final testing categorical accuracy of source :0.8357999920845032
+Final testing categorical accuracy of target :0.7896999716758728
