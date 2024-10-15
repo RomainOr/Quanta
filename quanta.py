@@ -15,13 +15,13 @@ import os
 # Make sure to put those lines before import tensorflow to be effective.
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Less verbosity
 
-import sys
 import random
 import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
 from models import build_and_compile_model
 from test_and_train import get_training_config, train, test, reset_metrics, export_metrics
+from quanta_arguments_parser import parse_arguments
 
 
 #################################################
@@ -41,65 +41,15 @@ def set_global_determinism(seed):
 
 
 #################################################
-############### Parsing arguments ###############
-#################################################
-
-def parse_arguments():
-    """Function to parse arguments to experiment with Quanta"""
-
-    output_dir = sys.argv[1]
-    current_run = int(sys.argv[2])
-    layer_to_transfer = int(sys.argv[3])
-    target_task = sys.argv[4]
-    source_task = 'cifar10'
-    input_seed = int(sys.argv[5])
-    nb_of_samples = 320
-    nb_of_target_epochs = 1
-    augment_data = False
-    train_from_previous_training = False
-
-    print("Python parameters :")
-    print("\t Output directory : ", output_dir)
-    if not os.path.exists(output_dir):
-        print('\t\t Creating non-existing output directory')
-        os.makedirs(output_dir)
-    print("\t Current run : ", current_run)
-    print("\t Layer : ", layer_to_transfer)
-    print("\t Target task : ", target_task)
-    print("\t Seed : ", input_seed)
-    print("\n")
-
-    arguments = {
-        'source_task':source_task,
-        'target_task':target_task,
-        'layer_to_transfer':layer_to_transfer,
-        'current_run':current_run,
-        'nb_of_target_epochs':nb_of_target_epochs,
-        'augment_data':augment_data,
-        'train_from_previous_training':train_from_previous_training,
-        'input_seed':input_seed,
-        'output_dir':output_dir,
-        'nb_of_samples':nb_of_samples,
-    }
-
-    return arguments
-
-
-#################################################
 ############ Main function of module ############
 #################################################
 
-
-def gradual_transfer(arguments):
+def gradual_transfer(arguments, current_run=1):
     """Main function to experiment gradual transfer with Quanta"""
 
-    # Call the above function with seed value if well defined
-    if arguments['input_seed'] is not None and arguments['input_seed'] > 0:
-        set_global_determinism(seed=arguments['input_seed'])
-
     # Loading input data
-    source_dataset = load_dataset(arguments['source_task'], arguments['nb_of_samples'])
-    target_dataset = load_dataset(arguments['target_task'], arguments['nb_of_samples'])
+    source_dataset = load_dataset(arguments.source_task, arguments.nb_of_target_samples)
+    target_dataset = load_dataset(arguments.target_task, arguments.nb_of_target_samples)
 
     # Get tensorflow training configuration
     training_config = get_training_config()
@@ -121,8 +71,8 @@ def gradual_transfer(arguments):
         optimizer = training_config['optimizer'],
         loss = training_config['loss'],
         metrics = training_config['metrics'],
-        augment_data = arguments['augment_data'],
-        layer_to_transfer = arguments['layer_to_transfer'],
+        augment_data = arguments.augment_data,
+        layer_to_transfer = arguments.layer_to_transfer,
         source_model = source_model)
 
     # Model training and evaluation
@@ -139,36 +89,36 @@ def gradual_transfer(arguments):
         model = target_model,
         training_set = target_dataset['training_set'],
         training_labels = target_dataset['training_labels'],
-        nb_of_epoch = arguments['nb_of_target_epochs'],
-        save_weights_path = arguments['output_dir'] + "/TargetModel.weights.h5",
-        train_from_previous_training = arguments['train_from_previous_training'])
+        nb_of_epoch = arguments.nb_of_target_epochs,
+        save_weights_path = arguments.output_dir + "/TargetModel.weights.h5",
+        train_from_previous_training = arguments.train_from_previous_training)
     testing_metrics_of_target = test(
         model = target_model,
         test_set = target_dataset['test_set'],
         test_labels = target_dataset['test_labels'],
-        weights = arguments['output_dir'] + "/TargetModel.weights.h5")
+        weights = arguments.output_dir + "/TargetModel.weights.h5")
 
     #Exporting metrics
     export_metrics(
-        arguments['output_dir'],
-        arguments['current_run'],
-        arguments['layer_to_transfer'],
+        arguments.output_dir,
+        current_run,
+        arguments.layer_to_transfer,
         target_model,
         training_metrics_of_target,
         False, 
         "/training_metrics_of_")
     export_metrics(
-        arguments['output_dir'],
-        arguments['current_run'],
-        arguments['layer_to_transfer'],
+        arguments.output_dir,
+        current_run,
+        arguments.layer_to_transfer,
         target_model,
         testing_metrics_of_target,
         True,
         "/testing_metrics_of_")
     export_metrics(
-        arguments['output_dir'],
-        arguments['current_run'],
-        arguments['layer_to_transfer'],
+        arguments.output_dir,
+        current_run,
+        arguments.layer_to_transfer,
         source_model,
         testing_metrics_of_source,
         True,
@@ -180,5 +130,15 @@ def gradual_transfer(arguments):
         str(testing_metrics_of_target['categorical_accuracy']))
 
 if __name__ == "__main__":
-    arguments = parse_arguments()
-    gradual_transfer(arguments)
+    # Parse all arguments of quanta evaluation tool
+    args = parse_arguments()
+    # Set global determinism if seed value is well defined
+    if args.seed is not None and args.seed >= 0:
+        set_global_determinism(seed=args.seed)
+    # Look at layer_to_transfer value to determine the way to do the transfer
+    if args.layer_to_transfer < 0 :
+        print("Transfer all at once in development.")
+    else:
+        for run in range(args.nb_of_runs):
+            print("\t Layer " + str(args.layer_to_transfer) + " - Run n°" + str(run+1) + "\n")
+            gradual_transfer(args, run)
