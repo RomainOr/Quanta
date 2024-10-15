@@ -101,7 +101,7 @@ def export_metrics(
     ):
     """Export metrics to a text file."""
 
-    tmp_string = model._name + '_model_run_'+str(current_run)+'_layer_'+str(layer_to_transfer)
+    tmp_string = model._name + '_r_'+str(current_run)+'_l_'+str(layer_to_transfer)
     f = open(
         file=output_dir + string + tmp_string + '.jsonl',
         mode='a',

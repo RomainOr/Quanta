@@ -1,6 +1,7 @@
 # QUANTA: QUANtitative TrAnsferability
 
 ## Submitted abstract to NIPS 2020
+
 > The computationally expansive nature of Deep Neural Networks, along with their
 significant hunger for labeled data, can impair the overall performance of these
 models. Among other techniques, this challenge can be tackled by Transfer
@@ -22,57 +23,75 @@ tool for quantifying the transferability of features of a source model, as well
 as new way of assessing the quality of a transfer.
 
 ## Pre-requisite
-The code was developped using [Python 3](https://www.python.org/downloads/) and [Keras over Tensorflow 2](https://www.tensorflow.org/install)
+
+The code was developped using [Python 3](https://www.python.org/downloads/) and [Keras over Tensorflow 2](https://www.tensorflow.org/install).
+
+A source model should already be trained before using quanta and its weights have to be stored in a file named ``SourceModel.weights.h5`` at the root of the quanta evaluation tool.
 
 ## What's there?
+
 ```
 .
 ├── CREDITS.md
 ├── LICENSE.txt
-├── SourceModel.h5
+├── .gitignore
+├── SourceModel.weights.h5
 ├── README.md
 ├── models.py
+├── quanta_arguments_parser.py
+├── quanta_custom_callback.py
+├── quanta_layer.py
 ├── quanta.py
-├── QuantaCustomCallback.py
-├── QuantaLayer.py
+├── test_and_train.py
 ```
 
 ## Running the code
-Use the bash script ``start_expe.sh`` to start an experiment:
 
-``./start_expe -o|--outdir=outputdir -r|--repeat=30 -l|--layer=5 -t|--target_task=cifar10``
+``usage: quanta.py [-h] [-o [OUTPUT_DIR]] -s {cifar10} -t {cifar10,cifar100} -l LAYER_TO_TRANSFER [-r [NB_OF_RUNS]] [--nb_of_target_epochs [NB_OF_TARGET_EPOCHS]] [--nb_of_target_samples [NB_OF_TARGET_SAMPLES]] [--seed [SEED]] [--augment_data] [--train_from_previous_training]``
 
 Options:
-* ``-o|--outdir=`` the output directory where the results of the experiements are written
-* ``-r|--repeat=`` for executing x runs of 60 epochs
-* ``-l|--layer=`` the layer whose transferability is assessed (0 to 6)
-* ``-t|--target_task=`` 'cifar10' or 'cifar100'
-* ``--seed=`` for setting the seed to manage determinism
+* ``-h|--help`` Show help message and usage.
+* ``-o|--outdir`` Precise the output directory where the results of the experiements are written. If the output directory does not exist, it will be created by the program. Default value is **.**.
+* ``-s|--source_task`` Define the source task of the pre-trained source model. Have to be 'cifar10'.
+* ``-t|--target_task`` Define the target task of the target model to train. Have to be 'cifar10' or 'cifar100'.
+* ``-l|--layer_to_transfer`` Define the layer whose transferability is assessed. Be carefull to respect your models. If this argument is set to '-1' or a negative value, then all source layers that can be transfered are transfered at the same time.
+* ``-r|--nb_of_runs`` Define the number of runs to experiment a transfer with quanta. Have to be stricly positive. Default value is **1**.
+* ``--nb_of_target_epochs`` Define the number of epochs to train a target model. Have to be stricly positive. Default value is **1**.
+* ``--nb_of_target_samples`` Define the number of samples to train and test a target model. Have to be stricly positive. This value is also used to compare performance between source and target models.
+* ``--seed`` Define the seed to manage determinism. If positive, the value is used to get determinism, otherwise no seed is set.
+* ``--augment_data`` If this flag is given, the target model will be trained with augmented data.
+* ``--train_from_previous_training`` If this flag is given, the target model will be trained from weights that have to be located in 'outdir' in a file named 'TargetModel.weights.h5'.
+
+Example :
+``python quanta.py -o ./expe -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320``
 
 ## Exported data
-After a run is complete, data are exported in the specified output directory, which
+
+After a run is complete, data are exported in the specified output directory {OUTPUT_DIR} , which
 has the following structure:
 ```
 .
 ├── specified_output_dir
-│   ├── 0.txt
-│   ├── 0_raw.txt
+│   ├── source_r_{number_of_run}_l_{layer_to_transfer}.keras
+│   ├── target_r_{number_of_run}_l_{layer_to_transfer}.keras
+│   ├── TargetModel.weights.h5
+│   ├── testing_metrics_of_source_r_{number_of_run}_l_{layer_to_transfer}.jsonl
 │   ├── ...
-│   ├── testing_metrics_of_target_0.txt
+│   ├── testing_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
 │   ├── ...
-│   └── training_metrics_of_target_0.txt
+│   ├── training_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
 │   └── ...
-├── ...
-├── README.md
-└── ...
 ```
-where ``0.txt`` (``r.txt``) contains the evolution of the measured transferability
-over the 60 epochs of run number 0 (run number ``r``). Files suffixed ``raw``
-contain the values of ``v`` (that is, before being transformed through a softmax).
-The file ``training_metrics_of_target_0.txt`` (resp. ``training_metrics_of_target_r.txt``)
-contains all the exported target model training metrics over the 60 epochs of run 0 (resp. ``r``).
-The file ``testing_metrics_of_target_0.txt`` (resp. ``testing_metrics_of_target_r.txt``)
-contains all the exported target model testing metrics over the 60 epochs of run 0 (resp. ``r``).
+
+where, given a {LAYER_TO_TRANSFER} and a {run} out of {NB_OF_RUNS}:
+* ``source_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of source.
+* ``target_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of target.
+* ``TargetModel.weights.h5`` is the weights of the target at the end of a run.
+* ``testing_metrics_of_source_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the source model.
+* ``testing_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the target model.
+* ``training_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all training metrics of the target model.
+
+When tensorflow displays the measured metrics, be carefull about the fact that it averages the metrics over the batches used to train or test a model.
 
 ## Licence
 This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``

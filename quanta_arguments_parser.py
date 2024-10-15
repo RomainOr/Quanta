@@ -30,8 +30,8 @@ def parse_arguments():
 
     parser = argparse.ArgumentParser(description="Quanta evaluation tool")
     parser.add_argument("-o", "--output_dir", nargs='?', default=".")
-    parser.add_argument("-s", "--source_task", nargs='?', default="cifar10", choices=['cifar10', 'cifar100'])
-    parser.add_argument("-t", "--target_task", nargs='?', default="cifar10", choices=['cifar10', 'cifar100'])
+    parser.add_argument("-s", "--source_task", choices=['cifar10'], required=True)
+    parser.add_argument("-t", "--target_task", choices=['cifar10', 'cifar100'], required=True)
     parser.add_argument("-l", "--layer_to_transfer", type=int, required=True)
     parser.add_argument("-r", "--nb_of_runs", action=CheckStrictlyPositiveAction, nargs='?', default=1, type=int)
     parser.add_argument("--nb_of_target_epochs", action=CheckStrictlyPositiveAction, nargs='?', default=1, type=int)
