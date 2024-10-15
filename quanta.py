@@ -20,7 +20,8 @@ import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
 from models import build_and_compile_model, load_target_model
-from test_and_train import get_training_config, train, test, reset_metrics, export_metrics
+from test_and_train import get_training_config, train, test, reset_metrics, \
+    export_metrics, export_quanta_from_model
 from quanta_arguments_parser import parse_arguments
 
 
@@ -98,6 +99,7 @@ def gradual_transfer(arguments, current_run=1):
         test_labels = target_dataset['test_labels'])
 
     #Exporting metrics
+    print("Export all metrics and data : start")
     export_metrics(
         arguments.output_dir,
         current_run,
@@ -122,6 +124,13 @@ def gradual_transfer(arguments, current_run=1):
         testing_metrics_of_source,
         True,
         "/testing_metrics_of_")
+    export_quanta_from_model(
+        arguments.output_dir,
+        current_run,
+        arguments.layer_to_transfer,
+        target_model
+    )
+    print("Export all metrics and data : done\n")
 
     print("Final testing categorical accuracy of source :" +
         str(testing_metrics_of_source['categorical_accuracy']))

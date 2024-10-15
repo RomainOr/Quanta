@@ -82,15 +82,14 @@ def reset_metrics(metrics):
 #################################################
 
 def export_metrics(
-    output_dir,
-    current_run,
-    layer_to_transfer,
-    model,
-    metrics_of_model,
-    save_model,
-    string
-    ):
-    """Export metrics to a text file."""
+        output_dir,
+        current_run,
+        layer_to_transfer,
+        model,
+        metrics_of_model,
+        save_model,
+        string):
+    """Export metrics to a jsonl file."""
 
     tmp_string = model._name + '_r_'+str(current_run)+'_l_'+str(layer_to_transfer)
     f = open(
@@ -103,3 +102,26 @@ def export_metrics(
 
     if save_model:
         model.save(output_dir + '/' + tmp_string + '.keras')
+
+def export_quanta_from_model(
+        output_dir,
+        current_run,
+        layer_to_transfer,
+        model):
+    """Export quanta values to a jsonl file."""
+
+    tmp_string = '/quantas_r_'+str(current_run)+'_l_'+str(layer_to_transfer)
+    f = open(
+        file=output_dir + tmp_string + '.jsonl',
+        mode='a',
+        encoding='UTF-8'
+    )
+    quantas = {}
+    for idx, layer in enumerate(model.layers):
+        if type(layer).__name__ == "QuantaLayer":
+            quantas["layer_to_transfer"] = layer_to_transfer
+            quantas["idx_layer_in_tf_model"] = idx
+            quantas["quanta_weights"] = cast(QuantaLayer, layer).get_quanta_weights()
+            quantas["quantas"] = cast(QuantaLayer, layer).get_quantas()
+    f.write(str(quantas)+'\n')
+    f.close()

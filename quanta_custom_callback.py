@@ -11,7 +11,8 @@ class QuantaCustomCallback(Callback):
     def __init__(self):
         super().__init__()
         self._quanta_weights = []
-        self._quantas = []
+        self._quanta_source = []
+        self._quanta_target = []
         self._position_of_transfered_layer = -1
 
     def _monitor_quanta_layer(self, layer):
@@ -26,8 +27,9 @@ class QuantaCustomCallback(Callback):
         s += '\t\t Quanta value of Source : ' + str(quantas.numpy()[0]) + '\n'
         s += '\t\t Quanta value of Target : ' + str(quantas.numpy()[1]) + '\n'
         # Store computed weights of quanta and value of source quanta
-        self._quanta_weights.append(quanta_weights)
-        self._quantas.append(quantas)
+        self._quanta_weights.append(quanta_weights.tolist())
+        self._quanta_source.append(quantas.numpy()[0])
+        self._quanta_target.append(quantas.numpy()[1])
         return s
 
     def get_quanta_weights(self):
@@ -36,7 +38,7 @@ class QuantaCustomCallback(Callback):
 
     def get_quantas(self):
         """Return the quanta values tracked in the custom callback."""
-        return self._quantas
+        return {"source":self._quanta_source, "target":self._quanta_target}
 
     def set_position_of_transfered_layer(self, position_of_transfered_layer):
         """Setter that enable to link a quanta custom callback to its related layer."""
