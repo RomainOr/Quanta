@@ -19,7 +19,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from datasets import load_dataset
-from models import build_and_compile_model
+from models import build_and_compile_model, load_target_model
 from test_and_train import get_training_config, train, test, reset_metrics, export_metrics
 from quanta_arguments_parser import parse_arguments
 
@@ -63,24 +63,26 @@ def gradual_transfer(arguments, current_run=1):
         loss = training_config['loss'],
         metrics = training_config['metrics'],
         trainable = False,
-        weights_path="./SourceModel.weights.h5")
-    target_model = build_and_compile_model(
-        model_name = "target",
-        input_shape = target_dataset['input_shape'],
-        output_shape = target_dataset['output_shape'],
-        optimizer = training_config['optimizer'],
-        loss = training_config['loss'],
-        metrics = training_config['metrics'],
-        augment_data = arguments.augment_data,
-        layer_to_transfer = arguments.layer_to_transfer,
-        source_model = source_model)
+        weights_model_path="./SourceModel.weights.h5")
+    if arguments.train_from_previous_training is None:
+        target_model = build_and_compile_model(
+            model_name = "target",
+            input_shape = target_dataset['input_shape'],
+            output_shape = target_dataset['output_shape'],
+            optimizer = training_config['optimizer'],
+            loss = training_config['loss'],
+            metrics = training_config['metrics'],
+            augment_data = arguments.augment_data,
+            layer_to_transfer = arguments.layer_to_transfer,
+            source_model = source_model)
+    else:
+        target_model = load_target_model(arguments.train_from_previous_training)
 
     # Model training and evaluation
     testing_metrics_of_source = test(
         model = source_model,
         test_set = source_dataset['test_set'],
-        test_labels = source_dataset['test_labels'],
-        weights = "./SourceModel.weights.h5")
+        test_labels = source_dataset['test_labels'])
     # Important to reset states of each used metric as they are shared by both models
     # Potentially, be also carefull about that point :
     # https://stackoverflow.com/questions/65923011/keras-tensoflow-full-reset
@@ -89,14 +91,11 @@ def gradual_transfer(arguments, current_run=1):
         model = target_model,
         training_set = target_dataset['training_set'],
         training_labels = target_dataset['training_labels'],
-        nb_of_epoch = arguments.nb_of_target_epochs,
-        save_weights_path = arguments.output_dir + "/TargetModel.weights.h5",
-        train_from_previous_training = arguments.train_from_previous_training)
+        nb_of_epoch = arguments.nb_of_target_epochs)
     testing_metrics_of_target = test(
         model = target_model,
         test_set = target_dataset['test_set'],
-        test_labels = target_dataset['test_labels'],
-        weights = arguments.output_dir + "/TargetModel.weights.h5")
+        test_labels = target_dataset['test_labels'])
 
     #Exporting metrics
     export_metrics(

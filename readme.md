@@ -26,7 +26,7 @@ as new way of assessing the quality of a transfer.
 
 The code was developped using [Python 3](https://www.python.org/downloads/) and [Keras over Tensorflow 2](https://www.tensorflow.org/install).
 
-A source model should already be trained before using quanta and its weights have to be stored in a file named ``SourceModel.weights.h5`` at the root of the quanta evaluation tool.
+A source model should already be trained before using quanta and its model has to be stored in a file named ``SourceModel.keras`` at the root of the quanta evaluation tool.
 
 ## What's there?
 
@@ -47,11 +47,11 @@ A source model should already be trained before using quanta and its weights hav
 
 ## Running the code
 
-``usage: quanta.py [-h] [-o [OUTPUT_DIR]] -s {cifar10} -t {cifar10,cifar100} -l LAYER_TO_TRANSFER [-r [NB_OF_RUNS]] [--nb_of_target_epochs [NB_OF_TARGET_EPOCHS]] [--nb_of_target_samples [NB_OF_TARGET_SAMPLES]] [--seed [SEED]] [--augment_data] [--train_from_previous_training]``
+``usage: quanta.py [-h] [-o [OUTPUT_DIR]] -s {cifar10} -t {cifar10,cifar100} -l LAYER_TO_TRANSFER [-r [NB_OF_RUNS]] [--nb_of_target_epochs [NB_OF_TARGET_EPOCHS]] [--nb_of_target_samples [NB_OF_TARGET_SAMPLES]] [--seed [SEED]] [--augment_data] [--train_from_previous_training TRAIN_FROM_PREVIOUS_TRAINING]``
 
 Options:
 * ``-h|--help`` Show help message and usage.
-* ``-o|--outdir`` Precise the output directory where the results of the experiements are written. If the output directory does not exist, it will be created by the program. Default value is **.**.
+* ``-o|--outdir`` Precise the output directory where the results of the experiements are written. If the output directory does not exist, it will be created by the program. Default value is **./expe**.
 * ``-s|--source_task`` Define the source task of the pre-trained source model. Have to be 'cifar10'.
 * ``-t|--target_task`` Define the target task of the target model to train. Have to be 'cifar10' or 'cifar100'.
 * ``-l|--layer_to_transfer`` Define the layer whose transferability is assessed. Be carefull to respect your models. If this argument is set to '-1' or a negative value, then all source layers that can be transfered are transfered at the same time.
@@ -60,10 +60,12 @@ Options:
 * ``--nb_of_target_samples`` Define the number of samples to train and test a target model. Have to be stricly positive. This value is also used to compare performance between source and target models.
 * ``--seed`` Define the seed to manage determinism. If positive, the value is used to get determinism, otherwise no seed is set.
 * ``--augment_data`` If this flag is given, the target model will be trained with augmented data.
-* ``--train_from_previous_training`` If this flag is given, the target model will be trained from weights that have to be located in 'outdir' in a file named 'TargetModel.weights.h5'.
+* ``--train_from_previous_training`` If the argument following this option is valid, the target model will be trained from a previous saved model located by this argument.
 
-Example :
-``python quanta.py -o ./expe -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320``
+Examples :
+* ``python quanta.py -h``
+* ``python quanta.py -o ./expe -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320``
+* ``python quanta.py -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320 --train_from_previous_training ./expe/target_r_0_l_0.keras``
 
 ## Exported data
 
@@ -74,7 +76,6 @@ has the following structure:
 ├── specified_output_dir
 │   ├── source_r_{number_of_run}_l_{layer_to_transfer}.keras
 │   ├── target_r_{number_of_run}_l_{layer_to_transfer}.keras
-│   ├── TargetModel.weights.h5
 │   ├── testing_metrics_of_source_r_{number_of_run}_l_{layer_to_transfer}.jsonl
 │   ├── ...
 │   ├── testing_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
@@ -86,13 +87,16 @@ has the following structure:
 where, given a {LAYER_TO_TRANSFER} and a {run} out of {NB_OF_RUNS}:
 * ``source_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of source.
 * ``target_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of target.
-* ``TargetModel.weights.h5`` is the weights of the target at the end of a run.
 * ``testing_metrics_of_source_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the source model.
 * ``testing_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the target model.
 * ``training_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all training metrics of the target model.
 
 When tensorflow displays the measured metrics, be carefull about the fact that it averages the metrics over the batches used to train or test a model.
 
-## Licence
+## Determinism by seeding
+
+TODO: add a note related to loaded a saved target model
+
+## License
 This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``
 for details.

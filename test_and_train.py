@@ -33,8 +33,7 @@ def get_training_config(learning_rate=2e-4, weight_decay=1e-6):
 ######### Model training and evaluation #########
 #################################################
 
-def train(model, training_set, training_labels, nb_of_epoch, 
-          save_weights_path, train_from_previous_training=False):
+def train(model, training_set, training_labels, nb_of_epoch):
     """Train a model."""
 
     print("Training " + model._name + " model : start")
@@ -47,27 +46,19 @@ def train(model, training_set, training_labels, nb_of_epoch,
         if type(layer).__name__ == "QuantaLayer":
             cb.append(cast(QuantaLayer, layer).get_custom_callback(idx))
 
-    if train_from_previous_training:
-        model.load_weights(save_weights_path)
-
     train_dataset = tf.data.Dataset.from_tensor_slices(
         (training_set, training_labels))
     train_dataset = train_dataset.batch(32).map(lambda x, y: (x, y))
 
     model.fit(train_dataset, epochs=nb_of_epoch, callbacks=cb)
     print("Training " + model._name + " model : done\n")
-
-    print("Saving model parameters : start")
-    model.save_weights(save_weights_path)
-    print("Saving model parameters : done\n")
     return training_metrics
 
 
-def test(model, test_set, test_labels, weights):
+def test(model, test_set, test_labels):
     """Test a model"""
 
     print("Testing " + model._name + " model : start")
-    model.load_weights(weights)
     test_dataset = tf.data.Dataset.from_tensor_slices((test_set, test_labels))
     test_dataset = test_dataset.batch(32).map(lambda x, y: (x, y))
     testing_metrics = model.evaluate(test_dataset, return_dict=True)

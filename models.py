@@ -111,16 +111,14 @@ def build_and_compile_model(
         layer_to_transfer=None,
         source_model=None,
         trainable=True,
-        weights_path=None):
+        weights_model_path=None):
     """Build and compile one model."""
 
     print("Building " + model_name + " model : start")
-
     if source_model is not None and layer_to_transfer is not None:
         inputs = source_model.get_layer(index=0).output
     else:
         inputs = tf.keras.Input(input_shape)
-
     model = tf.keras.Model(
         inputs=inputs,
         outputs=create_model(
@@ -130,15 +128,25 @@ def build_and_compile_model(
             source_model=source_model,
             augment_data=augment_data)
     )
-    model._name = model_name
-
-    if not trainable and weights_path is not None:
-        model.load_weights(weights_path)   
+    if not trainable:
         for l in model.layers:
             l.trainable = False
-
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    print("Building " + model_name + " model : done\n" )
 
-    print("Building " + model_name + " model : done\n")
+    if weights_model_path is not None:
+        print("Loading " + model_name + " weights : start")
+        model.load_weights(weights_model_path)
+        print("Loading " + model_name + " weights : done\n")
 
+    model._name = model_name
+    return model
+
+def load_target_model(model_path, model_name="target"):
+    """Load a saved target model."""
+
+    print("Loading " + model_name + " model : start")
+    model = tf.keras.models.load_model(model_path)
+    print("Loading " + model_name + " model : done\n")
+    model._name = model_name
     return model

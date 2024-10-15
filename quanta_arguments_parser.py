@@ -8,16 +8,24 @@ import argparse
 ############# Custom action classes #############
 #################################################
 
-class CheckPositiveAction(argparse.Action):
+class CheckPositive(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values < 0:
             parser.error("{0} has to be positive, but {1} has been given.".format(option_string, values))
         setattr(namespace, self.dest, values)
 
-class CheckStrictlyPositiveAction(argparse.Action):
+class CheckStrictlyPositive(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values <= 0:
             parser.error("{0} has to be strictly positive, but {1} has been given.".format(option_string, values))
+        setattr(namespace, self.dest, values)
+
+class CheckKerasModelExist(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not os.path.exists(values):
+            parser.error("{0}: {1} file not found.".format(option_string, values))
+        if not values.endswith('.keras'):
+            parser.error("{0}: {1} is not a keras model.".format(option_string, values))
         setattr(namespace, self.dest, values)
 
 
@@ -29,16 +37,16 @@ def parse_arguments():
     """Function to parse arguments to experiment with Quanta"""
 
     parser = argparse.ArgumentParser(description="Quanta evaluation tool")
-    parser.add_argument("-o", "--output_dir", nargs='?', default=".")
+    parser.add_argument("-o", "--output_dir", nargs='?', default="./expe")
     parser.add_argument("-s", "--source_task", choices=['cifar10'], required=True)
     parser.add_argument("-t", "--target_task", choices=['cifar10', 'cifar100'], required=True)
     parser.add_argument("-l", "--layer_to_transfer", type=int, required=True)
-    parser.add_argument("-r", "--nb_of_runs", action=CheckStrictlyPositiveAction, nargs='?', default=1, type=int)
-    parser.add_argument("--nb_of_target_epochs", action=CheckStrictlyPositiveAction, nargs='?', default=1, type=int)
-    parser.add_argument("--nb_of_target_samples", action=CheckStrictlyPositiveAction, nargs='?', default=0, type=int)
-    parser.add_argument("--seed", nargs='?', action=CheckPositiveAction, default=-1, type=int)
+    parser.add_argument("-r", "--nb_of_runs", action=CheckStrictlyPositive, nargs='?', default=1, type=int)
+    parser.add_argument("--nb_of_target_epochs", action=CheckStrictlyPositive, nargs='?', default=1, type=int)
+    parser.add_argument("--nb_of_target_samples", action=CheckStrictlyPositive, nargs='?', default=0, type=int)
+    parser.add_argument("--seed", nargs='?', action=CheckPositive, default=-1, type=int)
     parser.add_argument("--augment_data", action='store_true')
-    parser.add_argument("--train_from_previous_training", action='store_true')
+    parser.add_argument("--train_from_previous_training", action=CheckKerasModelExist, default=None, type=str)
     args=parser.parse_args()
 
     print("\nPython parameters :")
