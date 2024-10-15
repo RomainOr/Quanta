@@ -41,15 +41,12 @@ def set_global_determinism(seed):
 
 
 #################################################
-############ Main function of module ############
+############### Parsing arguments ###############
 #################################################
 
+def parse_arguments():
+    """Function to parse arguments to experiment with Quanta"""
 
-def gradual_transfer():
-    """Main function to experiment gradual transfer with Quanta"""
-
-    # Managing arguments and parameters
-    # TODO : Manage exceptions and defaults wrt shell script with argparse
     output_dir = sys.argv[1]
     current_run = int(sys.argv[2])
     layer_to_transfer = int(sys.argv[3])
@@ -72,13 +69,37 @@ def gradual_transfer():
     print("\t Seed : ", input_seed)
     print("\n")
 
+    arguments = {
+        'source_task':source_task,
+        'target_task':target_task,
+        'layer_to_transfer':layer_to_transfer,
+        'current_run':current_run,
+        'nb_of_target_epochs':nb_of_target_epochs,
+        'augment_data':augment_data,
+        'train_from_previous_training':train_from_previous_training,
+        'input_seed':input_seed,
+        'output_dir':output_dir,
+        'nb_of_samples':nb_of_samples,
+    }
+
+    return arguments
+
+
+#################################################
+############ Main function of module ############
+#################################################
+
+
+def gradual_transfer(arguments):
+    """Main function to experiment gradual transfer with Quanta"""
+
     # Call the above function with seed value if well defined
-    if input_seed is not None and input_seed > 0:
-        set_global_determinism(seed=input_seed)
+    if arguments['input_seed'] is not None and arguments['input_seed'] > 0:
+        set_global_determinism(seed=arguments['input_seed'])
 
     # Loading input data
-    source_dataset = load_dataset(source_task, nb_of_samples)
-    target_dataset = load_dataset(target_task, nb_of_samples)
+    source_dataset = load_dataset(arguments['source_task'], arguments['nb_of_samples'])
+    target_dataset = load_dataset(arguments['target_task'], arguments['nb_of_samples'])
 
     # Get tensorflow training configuration
     training_config = get_training_config()
@@ -100,8 +121,8 @@ def gradual_transfer():
         optimizer = training_config['optimizer'],
         loss = training_config['loss'],
         metrics = training_config['metrics'],
-        augment_data = augment_data,
-        layer_to_transfer = layer_to_transfer,
+        augment_data = arguments['augment_data'],
+        layer_to_transfer = arguments['layer_to_transfer'],
         source_model = source_model)
 
     # Model training and evaluation
@@ -118,22 +139,40 @@ def gradual_transfer():
         model = target_model,
         training_set = target_dataset['training_set'],
         training_labels = target_dataset['training_labels'],
-        nb_of_epoch = nb_of_target_epochs,
-        save_weights_path = output_dir + "/TargetModel.weights.h5",
-        train_from_previous_training = train_from_previous_training)
+        nb_of_epoch = arguments['nb_of_target_epochs'],
+        save_weights_path = arguments['output_dir'] + "/TargetModel.weights.h5",
+        train_from_previous_training = arguments['train_from_previous_training'])
     testing_metrics_of_target = test(
         model = target_model,
         test_set = target_dataset['test_set'],
         test_labels = target_dataset['test_labels'],
-        weights = output_dir + "/TargetModel.weights.h5")
+        weights = arguments['output_dir'] + "/TargetModel.weights.h5")
 
     #Exporting metrics
-    export_metrics(output_dir, current_run, layer_to_transfer, 
-                target_model, training_metrics_of_target, False, "/training_metrics_of_")
-    export_metrics(output_dir, current_run, layer_to_transfer, 
-                target_model, testing_metrics_of_target, True, "/testing_metrics_of_")
-    export_metrics(output_dir, current_run, layer_to_transfer, 
-                source_model, testing_metrics_of_source, True, "/testing_metrics_of_")
+    export_metrics(
+        arguments['output_dir'],
+        arguments['current_run'],
+        arguments['layer_to_transfer'],
+        target_model,
+        training_metrics_of_target,
+        False, 
+        "/training_metrics_of_")
+    export_metrics(
+        arguments['output_dir'],
+        arguments['current_run'],
+        arguments['layer_to_transfer'],
+        target_model,
+        testing_metrics_of_target,
+        True,
+        "/testing_metrics_of_")
+    export_metrics(
+        arguments['output_dir'],
+        arguments['current_run'],
+        arguments['layer_to_transfer'],
+        source_model,
+        testing_metrics_of_source,
+        True,
+        "/testing_metrics_of_")
 
     print("Final testing categorical accuracy of source :" +
         str(testing_metrics_of_source['categorical_accuracy']))
@@ -141,4 +180,5 @@ def gradual_transfer():
         str(testing_metrics_of_target['categorical_accuracy']))
 
 if __name__ == "__main__":
-    gradual_transfer()
+    arguments = parse_arguments()
+    gradual_transfer(arguments)
