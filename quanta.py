@@ -64,7 +64,7 @@ def gradual_transfer(arguments, current_run=1):
         loss = training_config['loss'],
         metrics = training_config['metrics'],
         trainable = False,
-        weights_model_path="./SourceModel.weights.h5")
+        weights_model_path=arguments.source_weights)
     if arguments.train_from_previous_training is None:
         target_model = build_and_compile_model(
             model_name = "target",

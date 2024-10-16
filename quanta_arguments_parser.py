@@ -28,6 +28,14 @@ class CheckKerasModelExist(argparse.Action):
             parser.error("{0}: {1} is not a keras model.".format(option_string, values))
         setattr(namespace, self.dest, values)
 
+class CheckWeightsModelExist(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not os.path.exists(values):
+            parser.error("{0}: {1} file not found.".format(option_string, values))
+        if not values.endswith('.h5'):
+            parser.error("{0}: {1} is not a weight model.".format(option_string, values))
+        setattr(namespace, self.dest, values)
+
 
 #################################################
 ############### Parsing arguments ###############
@@ -37,14 +45,15 @@ def parse_arguments():
     """Function to parse arguments to experiment with Quanta"""
 
     parser = argparse.ArgumentParser(description="Quanta evaluation tool")
-    parser.add_argument("-o", "--output_dir", nargs='?', default="./expe")
+    parser.add_argument("-o", "--output_dir", default="./expe")
     parser.add_argument("-s", "--source_task", choices=['cifar10'], required=True)
-    parser.add_argument("-t", "--target_task", choices=['cifar10', 'cifar100'], required=True)
+    parser.add_argument("-sw", "--source_weights", action=CheckWeightsModelExist, default=None, type=str, required=True)
+    parser.add_argument("-t", "--target_task", choices=['cifar10', 'cifar100', 'mnist', 'fashion_mnist'], required=True)
     parser.add_argument("-l", "--layer_to_transfer", type=int, required=True)
-    parser.add_argument("-r", "--nb_of_runs", action=CheckStrictlyPositive, nargs='?', default=1, type=int)
-    parser.add_argument("--nb_of_target_epochs", action=CheckStrictlyPositive, nargs='?', default=1, type=int)
-    parser.add_argument("--nb_of_target_samples", action=CheckStrictlyPositive, nargs='?', default=0, type=int)
-    parser.add_argument("--seed", nargs='?', action=CheckPositive, default=-1, type=int)
+    parser.add_argument("-r", "--nb_of_runs", action=CheckStrictlyPositive, default=1, type=int)
+    parser.add_argument("--nb_of_target_epochs", action=CheckStrictlyPositive, default=1, type=int)
+    parser.add_argument("--nb_of_target_samples", action=CheckStrictlyPositive, default=0, type=int)
+    parser.add_argument("--seed", action=CheckPositive, default=-1, type=int)
     parser.add_argument("--augment_data", action='store_true')
     parser.add_argument("--train_from_previous_training", action=CheckKerasModelExist, default=None, type=str)
     args=parser.parse_args()
@@ -55,6 +64,7 @@ def parse_arguments():
         print('\t\t Creating non-existing output directory')
         os.makedirs(args.output_dir)
     print("\t Source task : ", args.source_task)
+    print("\t Source weights : ", args.source_weights)
     print("\t Target task : ", args.target_task)
     print("\t Layer to transfer : ", args.layer_to_transfer)
     print("\t Nb of runs : ", args.nb_of_runs)

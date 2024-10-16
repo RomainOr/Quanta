@@ -47,12 +47,13 @@ A source model should already be trained before using quanta and its model has t
 
 ## Running the code
 
-``usage: quanta.py [-h] [-o [OUTPUT_DIR]] -s {cifar10} -t {cifar10,cifar100} -l LAYER_TO_TRANSFER [-r [NB_OF_RUNS]] [--nb_of_target_epochs [NB_OF_TARGET_EPOCHS]] [--nb_of_target_samples [NB_OF_TARGET_SAMPLES]] [--seed [SEED]] [--augment_data] [--train_from_previous_training TRAIN_FROM_PREVIOUS_TRAINING]``
+``usage: quanta.py [-h] [-o OUTPUT_DIR] -s {cifar10} -sw SOURCE_WEIGHTS -t {cifar10,cifar100} -l LAYER_TO_TRANSFER [-r NB_OF_RUNS] [--nb_of_target_epochs NB_OF_TARGET_EPOCHS] [--nb_of_target_samples NB_OF_TARGET_SAMPLES] [--seed SEED] [--augment_data] [--train_from_previous_training TRAIN_FROM_PREVIOUS_TRAINING]``
 
 Options:
 * ``-h|--help`` Show help message and usage.
 * ``-o|--outdir`` Precise the output directory where the results of the experiements are written. If the output directory does not exist, it will be created by the program. Default value is **./expe**.
 * ``-s|--source_task`` Define the source task of the pre-trained source model. Have to be 'cifar10'.
+* ``-sw|--source_weights`` Define the path of the weights of the pre-trained source model. Required and has to be a h5 file.
 * ``-t|--target_task`` Define the target task of the target model to train. Have to be 'cifar10' or 'cifar100'.
 * ``-l|--layer_to_transfer`` Define the layer whose transferability is assessed. Be carefull to respect your models. If this argument is set to '-1' or a negative value, then all source layers that can be transfered are transfered at the same time.
 * ``-r|--nb_of_runs`` Define the number of runs to experiment a transfer with quanta. Have to be stricly positive. Default value is **1**.
@@ -64,8 +65,8 @@ Options:
 
 Examples :
 * ``python quanta.py -h``
-* ``python quanta.py -o ./expe -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320``
-* ``python quanta.py -s cifar10 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320 --train_from_previous_training ./expe/target_r_0_l_0.keras``
+* ``python quanta.py -o ./expe -s cifar10 -sw SourceModel.weights.h5 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320``
+* ``python quanta.py -s cifar10 -sw SourceModel.weights.h5 -t cifar10 -l 0 -r 1 --seed 42 --nb_of_target_samples 320 --train_from_previous_training ./expe/target_r_0_l_0.keras``
 
 ## Exported data
 

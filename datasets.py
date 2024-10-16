@@ -16,6 +16,21 @@ def load_dataset(task, nb_of_samples=None, create_one_hots=True):
         (training_set, training_labels), (test_set, test_labels) = \
             tf.keras.datasets.cifar100.load_data()
         output_shape = 100
+    elif task == 'cifar10':
+        print("Loading Data of (" + task + ") : start")
+        (training_set, training_labels), (test_set, test_labels) = \
+            tf.keras.datasets.cifar10.load_data()
+        output_shape = 10
+    elif task == 'mnist':
+        print("Loading Data of (" + task + ") : start")
+        (training_set, training_labels), (test_set, test_labels) = \
+            tf.keras.datasets.mnist.load_data()
+        output_shape = 10
+    elif task == 'fashion_mnist':
+        print("Loading Data of (" + task + ") : start")
+        (training_set, training_labels), (test_set, test_labels) = \
+            tf.keras.datasets.fashion_mnist.load_data()
+        output_shape = 10
     else:
         print("Loading Data of (cifar10) : start")
         (training_set, training_labels), (test_set, test_labels) = \
