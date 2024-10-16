@@ -46,7 +46,7 @@ def parse_arguments():
 
     parser = argparse.ArgumentParser(description="Quanta evaluation tool")
     parser.add_argument("-o", "--output_dir", default="./expe")
-    parser.add_argument("-s", "--source_task", choices=['cifar10'], required=True)
+    parser.add_argument("-s", "--source_task", choices=['cifar10', 'cifar100', 'mnist', 'fashion_mnist'], required=True)
     parser.add_argument("-sw", "--source_weights", action=CheckWeightsModelExist, default=None, type=str, required=True)
     parser.add_argument("-t", "--target_task", choices=['cifar10', 'cifar100', 'mnist', 'fashion_mnist'], required=True)
     parser.add_argument("-l", "--layer_to_transfer", type=int, required=True)
