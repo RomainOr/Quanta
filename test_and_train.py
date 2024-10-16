@@ -1,5 +1,6 @@
 """Test and train module"""
 
+import json
 import tensorflow as tf
 
 from typing import cast
@@ -91,14 +92,15 @@ def export_metrics(
         string):
     """Export metrics to a jsonl file."""
 
-    tmp_string = model._name + '_r_'+str(current_run)+'_l_'+str(layer_to_transfer)
-    f = open(
+    layer_to_transfe_str = "all" if layer_to_transfer < 0 else str(layer_to_transfer)
+    tmp_string = model._name + '_r_'+str(current_run)+'_l_'+str(layer_to_transfe_str)
+    with open(
         file=output_dir + string + tmp_string + '.jsonl',
         mode='a',
         encoding='UTF-8'
-    )
-    f.write(str(metrics_of_model)+'\n')
-    f.close()
+    ) as f :
+        f.write(str(metrics_of_model)+'\n')
+        f.close()
 
     if save_model:
         model.save(output_dir + '/' + tmp_string + '.keras')
@@ -110,18 +112,20 @@ def export_quanta_from_model(
         model):
     """Export quanta values to a jsonl file."""
 
-    tmp_string = '/quantas_r_'+str(current_run)+'_l_'+str(layer_to_transfer)
-    f = open(
+    layer_to_transfe_str = "all" if layer_to_transfer < 0 else str(layer_to_transfer)
+    tmp_string = '/quantas_r_'+str(current_run)+'_l_'+layer_to_transfe_str
+    with open(
         file=output_dir + tmp_string + '.jsonl',
         mode='a',
         encoding='UTF-8'
-    )
-    quantas = {}
-    for idx, layer in enumerate(model.layers):
-        if type(layer).__name__ == "QuantaLayer":
-            quantas["layer_to_transfer"] = layer_to_transfer
-            quantas["idx_layer_in_tf_model"] = idx
-            quantas["quanta_weights"] = cast(QuantaLayer, layer).get_quanta_weights()
-            quantas["quantas"] = cast(QuantaLayer, layer).get_quantas()
-    f.write(str(quantas)+'\n')
-    f.close()
+    ) as f:
+        quantas = {}
+        for idx, layer in enumerate(model.layers):
+            if type(layer).__name__ == "QuantaLayer":
+                quantas[""+str(idx)] = {
+                    "quanta_weights": cast(QuantaLayer, layer).get_quanta_weights(),
+                    "quantas" : cast(QuantaLayer, layer).get_quantas()
+                }
+        #f.write(str(quantas)+'\n')
+        json.dump(quantas, f , indent=4)
+        f.close()

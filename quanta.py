@@ -45,7 +45,7 @@ def set_global_determinism(seed):
 ############ Main function of module ############
 #################################################
 
-def gradual_transfer(arguments, current_run=1):
+def transfer(arguments, current_run=1, all_at_once=False):
     """Main function to experiment gradual transfer with Quanta"""
 
     # Loading input data
@@ -64,7 +64,8 @@ def gradual_transfer(arguments, current_run=1):
         loss = training_config['loss'],
         metrics = training_config['metrics'],
         trainable = False,
-        weights_model_path=arguments.source_weights)
+        weights_model_path=arguments.source_weights,
+        all_at_once=all_at_once)
     if arguments.train_from_previous_training is None:
         target_model = build_and_compile_model(
             model_name = "target",
@@ -75,7 +76,8 @@ def gradual_transfer(arguments, current_run=1):
             metrics = training_config['metrics'],
             augment_data = arguments.augment_data,
             layer_to_transfer = arguments.layer_to_transfer,
-            source_model = source_model)
+            source_model = source_model,
+            all_at_once=all_at_once)
     else:
         target_model = load_target_model(arguments.train_from_previous_training)
 
@@ -145,8 +147,10 @@ if __name__ == "__main__":
         set_global_determinism(seed=args.seed)
     # Look at layer_to_transfer value to determine the way to do the transfer
     if args.layer_to_transfer < 0 :
-        print("Transfer all at once in development.")
+        for run in range(args.nb_of_runs):
+            print("\t All layers at once - Run n°" + str(run+1) + "\n")
+            transfer(args, run, all_at_once=True)
     else:
         for run in range(args.nb_of_runs):
             print("\t Layer " + str(args.layer_to_transfer) + " - Run n°" + str(run+1) + "\n")
-            gradual_transfer(args, run)
+            transfer(args, run, all_at_once=False)

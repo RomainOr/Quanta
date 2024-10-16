@@ -28,8 +28,8 @@ class QuantaCustomCallback(Callback):
         s += '\t\t Quanta value of Target : ' + str(quantas.numpy()[1]) + '\n'
         # Store computed weights of quanta and value of source quanta
         self._quanta_weights.append(quanta_weights.tolist())
-        self._quanta_source.append(quantas.numpy()[0])
-        self._quanta_target.append(quantas.numpy()[1])
+        self._quanta_source.append(quantas.numpy()[0].item())
+        self._quanta_target.append(quantas.numpy()[1].item())
         return s
 
     def get_quanta_weights(self):

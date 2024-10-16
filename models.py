@@ -9,7 +9,12 @@ from quanta_layer import QuantaLayer
 #### Building blocks of convolutionnal layers ###
 #################################################
 
-def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_layer=None):
+def build_block(
+        inputs,
+        size,
+        layer_to_tranfer=None,
+        outputs_of_block_source_layer=None,
+        all_at_once=False):
     """Build a block of two convolutionnal layers within a tensorflow model of given size. \n
     Arguments *layer_to_tranfer* and *outputs_of_block_source_layer* can respectively indicate 
     which layer has to be transfered through a Quanta layer.
@@ -17,7 +22,7 @@ def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_lay
 
     x = inputs
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-    if (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
+    if all_at_once or (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
             and layer_to_tranfer % 2 == 0):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[0], x])
     else:
@@ -25,7 +30,7 @@ def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_lay
     x = tf.keras.layers.BatchNormalization()(x)
 
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-    if (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
+    if all_at_once or (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
             and layer_to_tranfer % 2 == 1):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[1], x])
     else:
@@ -41,7 +46,13 @@ def build_block(inputs, size, layer_to_tranfer=None, outputs_of_block_source_lay
 ####### Create full model using convblocks ######
 #################################################
 
-def create_model(inputs, size_of_outputs, layer_to_transfer=None, source_model=None, augment_data=False):
+def create_model(
+        inputs,
+        size_of_outputs,
+        layer_to_transfer=None,
+        source_model=None,
+        augment_data=False,
+        all_at_once=False):
     """Build a model made from convolutionnal blocks from *build_block* function."""
 
     outputs_of_block_source_layer = []
@@ -65,27 +76,31 @@ def create_model(inputs, size_of_outputs, layer_to_transfer=None, source_model=N
             height_factor=0.1,
             width_factor=None)(x)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (0, 1))):
-        x = build_block(x, 64, layer_to_transfer, [
-            outputs_of_block_source_layer[0], outputs_of_block_source_layer[1]])
+    if (all_at_once and source_model is not None) or \
+            (outputs_of_block_source_layer != [] and (layer_to_transfer in (0, 1))):
+        x = build_block(x, 64, layer_to_transfer, 
+                [outputs_of_block_source_layer[0], outputs_of_block_source_layer[1]], all_at_once)
     else:
         x = build_block(x, 64)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (2, 3))):
-        x = build_block(x, 128, layer_to_transfer, [
-            outputs_of_block_source_layer[2], outputs_of_block_source_layer[3]])
+    if (all_at_once and source_model is not None) or \
+            (outputs_of_block_source_layer != [] and (layer_to_transfer in (2, 3))):
+        x = build_block(x, 128, layer_to_transfer, 
+                [outputs_of_block_source_layer[2], outputs_of_block_source_layer[3]], all_at_once)
     else:
         x = build_block(x, 128)
 
-    if (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
-        x = build_block(x, 512, layer_to_transfer, [
-            outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]])
+    if (all_at_once and source_model is not None) or \
+            (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
+        x = build_block(x, 512, layer_to_transfer, 
+                [outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]], all_at_once)
     else:
         x = build_block(x, 512)
 
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(2048)(x)
-    if (outputs_of_block_source_layer != [] and layer_to_transfer == 6):
+    if (all_at_once and source_model is not None) or \
+            (outputs_of_block_source_layer != [] and layer_to_transfer == 6):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[6], x])
     else:
         x = tf.keras.layers.Activation('elu')(x)
@@ -111,7 +126,8 @@ def build_and_compile_model(
         layer_to_transfer=None,
         source_model=None,
         trainable=True,
-        weights_model_path=None):
+        weights_model_path=None,
+        all_at_once=False):
     """Build and compile one model."""
 
     print("Building " + model_name + " model : start")
@@ -126,7 +142,8 @@ def build_and_compile_model(
             size_of_outputs=output_shape,
             layer_to_transfer=layer_to_transfer,
             source_model=source_model,
-            augment_data=augment_data)
+            augment_data=augment_data,
+            all_at_once=all_at_once)
     )
     if not trainable:
         for l in model.layers:
