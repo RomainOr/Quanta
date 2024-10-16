@@ -99,7 +99,8 @@ def export_metrics(
         mode='a',
         encoding='UTF-8'
     ) as f :
-        f.write(str(metrics_of_model)+'\n')
+        json.dump(metrics_of_model, f, indent=4)
+        f.write('\n')
         f.close()
 
     if save_model:
@@ -126,6 +127,6 @@ def export_quanta_from_model(
                     "quanta_weights": cast(QuantaLayer, layer).get_quanta_weights(),
                     "quantas" : cast(QuantaLayer, layer).get_quantas()
                 }
-        #f.write(str(quantas)+'\n')
         json.dump(quantas, f , indent=4)
+        f.write('\n')
         f.close()
