@@ -104,6 +104,8 @@ def transfer(arguments, current_run=1, all_at_once=False):
     print("Export all metrics and data : start")
     export_metrics(
         arguments.output_dir,
+        arguments.source_task,
+        arguments.target_task,
         current_run,
         arguments.layer_to_transfer,
         target_model,
@@ -112,6 +114,8 @@ def transfer(arguments, current_run=1, all_at_once=False):
         "/training_metrics_of_")
     export_metrics(
         arguments.output_dir,
+        arguments.source_task,
+        arguments.target_task,
         current_run,
         arguments.layer_to_transfer,
         target_model,
@@ -120,6 +124,8 @@ def transfer(arguments, current_run=1, all_at_once=False):
         "/testing_metrics_of_")
     export_metrics(
         arguments.output_dir,
+        arguments.source_task,
+        arguments.target_task,
         current_run,
         arguments.layer_to_transfer,
         source_model,
@@ -128,6 +134,8 @@ def transfer(arguments, current_run=1, all_at_once=False):
         "/testing_metrics_of_")
     export_quanta_from_model(
         arguments.output_dir,
+        arguments.source_task,
+        arguments.target_task,
         current_run,
         arguments.layer_to_transfer,
         target_model

@@ -1,5 +1,6 @@
 """Test and train module"""
 
+import os
 import json
 import tensorflow as tf
 
@@ -84,18 +85,23 @@ def reset_metrics(metrics):
 
 def export_metrics(
         output_dir,
+        source_task,
+        target_task,
         current_run,
         layer_to_transfer,
         model,
         metrics_of_model,
         save_model,
-        string):
+        filename_begin):
     """Export metrics to a jsonl file."""
 
-    layer_to_transfe_str = "all" if layer_to_transfer < 0 else str(layer_to_transfer)
-    tmp_string = model._name + '_r_'+str(current_run)+'_l_'+str(layer_to_transfe_str)
+    layer_to_transfer_str = 'all' if layer_to_transfer < 0 else str(layer_to_transfer)
+    filename_end = model._name + '_r_' + str(current_run) + '_l_'+ layer_to_transfer_str
+    directory = output_dir + '/' + source_task + '_to_' + target_task
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     with open(
-        file=output_dir + string + tmp_string + '.jsonl',
+        file=directory + filename_begin + filename_end + '.jsonl',
         mode='a',
         encoding='UTF-8'
     ) as f :
@@ -104,26 +110,31 @@ def export_metrics(
         f.close()
 
     if save_model:
-        model.save(output_dir + '/' + tmp_string + '.keras')
+        model.save(directory + '/' + filename_end + '.keras')
 
 def export_quanta_from_model(
         output_dir,
+        source_task,
+        target_task,
         current_run,
         layer_to_transfer,
         model):
     """Export quanta values to a jsonl file."""
 
-    layer_to_transfe_str = "all" if layer_to_transfer < 0 else str(layer_to_transfer)
-    tmp_string = '/quantas_r_'+str(current_run)+'_l_'+layer_to_transfe_str
+    layer_to_transfer_str = 'all' if layer_to_transfer < 0 else str(layer_to_transfer)
+    filename = '/quantas' + '_r_' + str(current_run) + '_l_'+ layer_to_transfer_str
+    directory = output_dir + '/' + source_task + '_to_' + target_task
+    if not os.path.exists(directory):
+        os.makedirs(directory)
     with open(
-        file=output_dir + tmp_string + '.jsonl',
+        file=directory + filename + '.jsonl',
         mode='a',
         encoding='UTF-8'
     ) as f:
         quantas = {}
         for idx, layer in enumerate(model.layers):
-            if type(layer).__name__ == "QuantaLayer":
-                quantas[""+str(idx)] = {
+            if type(layer).__name__ == 'QuantaLayer':
+                quantas[str(idx)] = {
                     "quanta_weights": cast(QuantaLayer, layer).get_quanta_weights(),
                     "quantas" : cast(QuantaLayer, layer).get_quantas()
                 }
