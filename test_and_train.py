@@ -105,7 +105,7 @@ def export_metrics(
         mode='a',
         encoding='UTF-8'
     ) as f :
-        json.dump(metrics_of_model, f, indent=4)
+        json.dump(metrics_of_model, f)
         f.write('\n')
         f.close()
 
@@ -138,6 +138,6 @@ def export_quanta_from_model(
                     "quanta_weights": cast(QuantaLayer, layer).get_quanta_weights(),
                     "quantas" : cast(QuantaLayer, layer).get_quantas()
                 }
-        json.dump(quantas, f , indent=4)
+        json.dump(quantas, f)
         f.write('\n')
         f.close()
