@@ -15,6 +15,7 @@ import os
 # Make sure to put those lines before import tensorflow to be effective.
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Less verbosity
 
+import sys
 import random
 import numpy as np
 import tensorflow as tf
@@ -80,6 +81,11 @@ def transfer(arguments, current_run=1, all_at_once=False):
             all_at_once=all_at_once)
     else:
         target_model = load_target_model(arguments.train_from_previous_training)
+
+    if arguments.show_only_build:
+        source_model.summary()
+        target_model.summary()
+        sys.exit(0)
 
     # Model training and evaluation
     testing_metrics_of_source = test(

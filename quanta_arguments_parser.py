@@ -56,6 +56,7 @@ def parse_arguments():
     parser.add_argument("--seed", action=CheckPositive, default=-1, type=int)
     parser.add_argument("--augment_data", action='store_true')
     parser.add_argument("--train_from_previous_training", action=CheckKerasModelExist, default=None, type=str)
+    parser.add_argument("--show_only_build", action='store_true')
     args=parser.parse_args()
 
     print("\nPython parameters :")
@@ -73,5 +74,6 @@ def parse_arguments():
     print("\t Nb of samples : ", args.nb_of_target_samples)
     print("\t Augment data : ", args.augment_data)
     print("\t Train from previous training : ", args.train_from_previous_training)
+    print("\t Show only build : ", args.show_only_build)
     print("\n")
     return args
