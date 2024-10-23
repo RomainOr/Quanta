@@ -10,22 +10,7 @@ The code was developped using [Python 3](https://www.python.org/downloads/) and 
 
 A source model should already be trained before using quanta and its model has to be stored in a file named ``SourceModel.keras`` at the root of the quanta evaluation tool.
 
-## What's there?
-
-```
-.
-├── CREDITS.md
-├── LICENSE.txt
-├── .gitignore
-├── SourceModel.weights.h5
-├── README.md
-├── models.py
-├── quanta_arguments_parser.py
-├── quanta_custom_callback.py
-├── quanta_layer.py
-├── quanta.py
-├── test_and_train.py
-```
+Be also careful of the architectures of your source model and your target model to use quanta.
 
 ## Running the code
 
@@ -44,6 +29,7 @@ Options:
 * ``--seed`` Define the seed to manage determinism. If positive, the value is used to get determinism, otherwise no seed is set.
 * ``--augment_data`` If this flag is given, the target model will be trained with augmented data.
 * ``--train_from_previous_training`` If the argument following this option is valid, the target model will be trained from a previous saved model located by this argument.
+* ``--show_only_build`` If this flag is given, the models will only be compiled and their tf summary will be displayed.
 
 Examples :
 * ``python quanta.py -h``
@@ -57,19 +43,26 @@ has the following structure:
 ```
 .
 ├── specified_output_dir
-│   ├── source_r_{number_of_run}_l_{layer_to_transfer}.keras
-│   ├── target_r_{number_of_run}_l_{layer_to_transfer}.keras
-│   ├── testing_metrics_of_source_r_{number_of_run}_l_{layer_to_transfer}.jsonl
-│   ├── ...
-│   ├── testing_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
-│   ├── ...
-│   ├── training_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
-│   └── ...
+│   └── {source_task}_to_{target_task}
+│   │   ├── ...
+│   │   ├── source_r_{number_of_run}_l_{layer_to_transfer}.keras
+│   │   ├── ...
+│   │   ├── target_r_{number_of_run}_l_{layer_to_transfer}.keras
+│   │   ├── ...
+│   │   ├── quantas_r_{number_of_run}_l_{layer_to_transfer}.jsonl
+│   │   ├── ...
+│   │   ├── testing_metrics_of_source_r_{number_of_run}_l_{layer_to_transfer}.jsonl
+│   │   ├── ...
+│   │   ├── testing_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
+│   │   ├── ...
+│   │   ├── training_metrics_of_target_r_{number_of_run}_l_{layer_to_transfer}.jsonl
+│   │   └── ...
 ```
 
 where, given a {LAYER_TO_TRANSFER} and a {run} out of {NB_OF_RUNS}:
 * ``source_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of source.
 * ``target_r_{run}_l_{layer_to_transfer}.keras`` is the keras model of target.
+* ``quantas_r_{number_of_run}_l_{layer_to_transfer}.jsonl`` collects all quanta values within the target model.
 * ``testing_metrics_of_source_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the source model.
 * ``testing_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all testing metrics of the target model.
 * ``training_metrics_of_target_r_{run}_l_{layer_to_transfer}.jsonl`` collects all training metrics of the target model.
@@ -78,8 +71,7 @@ When tensorflow displays the measured metrics, be carefull about the fact that i
 
 ## Determinism by seeding
 
-Be careful that the states of the PRNG are different, and so the results are, when you reload a model to continue a training from when you just continue your training.
+Be careful that the states of the PRNG are different, and so the results are, when you reload a model to continue a training from when you just continue your training without exiting the program.
 
 ## License
-This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``
-for details.
+This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt`` for details.
