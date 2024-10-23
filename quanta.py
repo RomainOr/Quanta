@@ -31,7 +31,13 @@ from quanta_arguments_parser import parse_arguments
 #################################################
 
 def set_global_determinism(seed):
-    """Wrapper to globally control determinism through a seed value."""
+    """
+    Wrapper to globally control determinism through a seed value.
+    
+    Args:
+        Seed:
+            A positive int to use as a seed for numpy, random and tf prng.
+    """
 
     os.environ['PYTHONHASHSEED'] = str(seed)
     os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -47,7 +53,19 @@ def set_global_determinism(seed):
 #################################################
 
 def transfer(arguments, current_run=1, all_at_once=False):
-    """Main function to experiment gradual transfer with Quanta"""
+    """
+    Main function to experiment gradual transfer with Quanta.
+    
+    Args:
+        arguments:
+            Argparser that contains all needed arguments.
+        current_run:
+            The number of the run.
+            Default to 1.
+        all_at_once:
+            A boolean to indicate if all conv2d and dense layers have to be transfered.
+            Default at True.
+    """
 
     # Loading input data
     source_dataset = load_dataset(arguments.source_task, arguments.nb_of_target_samples)
@@ -116,7 +134,7 @@ def transfer(arguments, current_run=1, all_at_once=False):
         arguments.layer_to_transfer,
         target_model,
         training_metrics_of_target,
-        False, 
+        False,
         "/training_metrics_of_")
     export_metrics(
         arguments.output_dir,
