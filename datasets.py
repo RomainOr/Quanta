@@ -1,4 +1,4 @@
-"""Module to ..."""
+"""Module to load the datasets"""
 
 import tensorflow as tf
 
@@ -8,8 +8,31 @@ import tensorflow as tf
 #################################################
 
 def load_dataset(task, nb_of_samples=None, create_one_hots=True):
-    """Load a dataset from tensorflow keras and return it with input and output shapes."""
-    
+    """
+    Load a dataset from tensorflow keras and return it with input and output shapes.
+
+    Args:
+        task: 
+            A string expliciting the task.
+        nb_of_samples: 
+            Number of samples to have in the sets to reduce training time for example. 
+            Default at None.
+        create_one_hots: 
+            A boolean to transform labels as one-hots.
+            Default at True.
+
+    Returns:
+        Dictionnary with training and test sets and the related labels, 
+        the input and output shapes.
+
+    Example:
+        ```
+        load_dataset('cifar10')
+        load_dataset('cifar100', 320)
+        load_dataset('mnist', 6400, True)
+        ```
+    """
+
     output_shape = -1
     if task == 'cifar100':
         print("Loading Data of (" + task + ") : start")
@@ -36,7 +59,7 @@ def load_dataset(task, nb_of_samples=None, create_one_hots=True):
         (training_set, training_labels), (test_set, test_labels) = \
             tf.keras.datasets.cifar10.load_data()
         output_shape = 10
-    
+
     input_shape = training_set.shape[1:]
 
     if nb_of_samples is not None and nb_of_samples > 0:
@@ -44,7 +67,7 @@ def load_dataset(task, nb_of_samples=None, create_one_hots=True):
         training_labels = training_labels[:nb_of_samples]
         test_set = test_set[:nb_of_samples]
         test_labels = test_labels[:nb_of_samples]
-    
+
     print("Loading Data : done\n")
 
     if create_one_hots:
@@ -52,13 +75,13 @@ def load_dataset(task, nb_of_samples=None, create_one_hots=True):
         training_labels = tf.keras.utils.to_categorical(training_labels)
         test_labels = tf.keras.utils.to_categorical(test_labels)
         print("Creating one-hots : done\n")
-    
+
     return_result = {
         'output_shape': output_shape,
         'input_shape': input_shape,
         'training_set': training_set,
-        'training_labels': training_labels, 
-        'test_set': test_set, 
+        'training_labels': training_labels,
+        'test_set': test_set,
         'test_labels': test_labels
     }
     return return_result

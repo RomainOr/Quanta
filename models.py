@@ -15,23 +15,44 @@ def build_block(
         layer_to_tranfer=None,
         outputs_of_block_source_layer=None,
         all_at_once=False):
-    """Build a block of two convolutionnal layers within a tensorflow model of given size. \n
+    """
+    Build a block of two convolutionnal layers within a tensorflow model of given size. \n
     Arguments *layer_to_tranfer* and *outputs_of_block_source_layer* can respectively indicate 
     which layer has to be transfered through a Quanta layer.
+
+    Args:
+        inputs:
+            The inputs built with tensorflow.
+        size:
+            The size of the two conv2d layer used in this model.
+        layer_to_tranfer: 
+            The number of the layer to transfer that could be a dense layer or a conv2d layer.
+            Default at None.
+        outputs_of_block_source_layer: 
+            A list to build a quanta layer with respect to the layer to transfer.
+            Default at None.
+        all_at_once: 
+            A boolean to indicate if all conv2d and dense layers have to be transfered.
+            Default at True.
+
+    Returns:
+        The block built from inputs with respect to the other arguments.
     """
 
     x = inputs
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-    if all_at_once or (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
-            and layer_to_tranfer % 2 == 0):
+    if all_at_once or \
+            (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
+             and layer_to_tranfer % 2 == 0):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[0], x])
     else:
         x = tf.keras.layers.Activation('elu')(x)
     x = tf.keras.layers.BatchNormalization()(x)
 
     x = tf.keras.layers.Conv2D(size, 3, padding='same')(x)
-    if all_at_once or (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
-            and layer_to_tranfer % 2 == 1):
+    if all_at_once or \
+            (layer_to_tranfer is not None and outputs_of_block_source_layer is not None
+             and layer_to_tranfer % 2 == 1):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[1], x])
     else:
         x = tf.keras.layers.Activation('elu')(x)
@@ -48,12 +69,35 @@ def build_block(
 
 def create_model(
         inputs,
-        size_of_outputs,
+        output_shape,
         layer_to_transfer=None,
         source_model=None,
         augment_data=False,
         all_at_once=False):
-    """Build a model made from convolutionnal blocks from *build_block* function."""
+    """
+    Build a model made from convolutionnal blocks from *build_block* function.
+
+    Args:
+        inputs:
+            The inputs built with tensorflow.
+        output_shape:
+            The output shape of the last layer used in this model.
+        layer_to_tranfer: 
+            The number of the layer to transfer that could be a dense layer or a conv2d layer.
+            Default at None.
+        source_model: 
+            A tensorflow model to get the layer to transfer?
+            Default at None.
+        augment_data: 
+            A boolean to add layers to augment data or not in the model.
+            Default at None.
+        all_at_once: 
+            A boolean to indicate if all conv2d and dense layers have to be transfered.
+            Default at True.
+
+    Returns:
+        The whole built model.
+    """
 
     outputs_of_block_source_layer = []
     if source_model is not None:
@@ -78,22 +122,34 @@ def create_model(
 
     if (all_at_once and source_model is not None) or \
             (outputs_of_block_source_layer != [] and (layer_to_transfer in (0, 1))):
-        x = build_block(x, 64, layer_to_transfer, 
-                [outputs_of_block_source_layer[0], outputs_of_block_source_layer[1]], all_at_once)
+        x = build_block(
+            x,
+            64,
+            layer_to_transfer,
+            [outputs_of_block_source_layer[0], outputs_of_block_source_layer[1]],
+            all_at_once)
     else:
         x = build_block(x, 64)
 
     if (all_at_once and source_model is not None) or \
             (outputs_of_block_source_layer != [] and (layer_to_transfer in (2, 3))):
-        x = build_block(x, 128, layer_to_transfer, 
-                [outputs_of_block_source_layer[2], outputs_of_block_source_layer[3]], all_at_once)
+        x = build_block(
+            x,
+            128,
+            layer_to_transfer,
+            [outputs_of_block_source_layer[2], outputs_of_block_source_layer[3]],
+            all_at_once)
     else:
         x = build_block(x, 128)
 
     if (all_at_once and source_model is not None) or \
             (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
-        x = build_block(x, 512, layer_to_transfer, 
-                [outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]], all_at_once)
+        x = build_block(
+            x,
+            512,
+            layer_to_transfer,
+            [outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]],
+            all_at_once)
     else:
         x = build_block(x, 512)
 
@@ -106,7 +162,7 @@ def create_model(
         x = tf.keras.layers.Activation('elu')(x)
 
     x = tf.keras.layers.Dropout(0.5)(x)
-    x = tf.keras.layers.Dense(size_of_outputs, activation='softmax')(x)
+    x = tf.keras.layers.Dense(output_shape, activation='softmax')(x)
 
     return x
 
@@ -128,7 +184,44 @@ def build_and_compile_model(
         trainable=True,
         weights_model_path=None,
         all_at_once=False):
-    """Build and compile one model."""
+    """
+    Build and compile one model.
+
+    Args:
+        model_name:
+            A personalized name givent to the built model.
+        input_shape:
+            The input shape of the model.
+        output_shape:
+            The output shape of the last layer used in this model.
+        optimizer:
+            When compiling the model, string or optimizer instance to train the model.
+        loss:
+            When compiling the model, string or loss function instance to train the model.
+        metrics:
+            List of metrics to be evaluated by the model during training and testing.
+        augment_data: 
+            A boolean to add layers to augment data or not in the model.
+            Default at None.
+        layer_to_tranfer: 
+            The number of the layer to transfer that could be a dense layer or a conv2d layer.
+            Default at None.
+        source_model: 
+            A tensorflow model to get the layer to transfer?
+            Default at None.
+        trainable:
+            A boolean to indicate whether the model is trainable or not.
+            Default at True.
+        weights_model_path:
+            A path to a '.h5' file to load weights withion the built model.
+            Default at None.
+        all_at_once: 
+            A boolean to indicate if all conv2d and dense layers have to be transfered.
+            Default at True.
+
+    Returns:
+        The whole model built and compiled, ready to be trained or evaluated.
+    """
 
     print("Building " + model_name + " model : start")
     if source_model is not None and layer_to_transfer is not None:
@@ -139,7 +232,7 @@ def build_and_compile_model(
         inputs=inputs,
         outputs=create_model(
             inputs=inputs,
-            size_of_outputs=output_shape,
+            output_shape=output_shape,
             layer_to_transfer=layer_to_transfer,
             source_model=source_model,
             augment_data=augment_data,
@@ -149,7 +242,7 @@ def build_and_compile_model(
         for l in model.layers:
             l.trainable = False
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
-    print("Building " + model_name + " model : done\n" )
+    print("Building " + model_name + " model : done\n")
 
     if weights_model_path is not None:
         print("Loading " + model_name + " weights : start")
@@ -158,6 +251,7 @@ def build_and_compile_model(
 
     model._name = model_name
     return model
+
 
 def load_target_model(model_path, model_name="target"):
     """Load a saved target model."""
