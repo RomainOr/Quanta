@@ -86,7 +86,7 @@ def create_model(
             The number of the layer to transfer that could be a dense layer or a conv2d layer.
             Default at None.
         source_model: 
-            A tensorflow model to get the layer to transfer?
+            A tensorflow model to get the layer to transfer.
             Default at None.
         augment_data: 
             A boolean to add layers to augment data or not in the model.
@@ -207,7 +207,7 @@ def build_and_compile_model(
             The number of the layer to transfer that could be a dense layer or a conv2d layer.
             Default at None.
         source_model: 
-            A tensorflow model to get the layer to transfer?
+            A tensorflow model to get the layer to transfer.
             Default at None.
         trainable:
             A boolean to indicate whether the model is trainable or not.

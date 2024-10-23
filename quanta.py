@@ -54,7 +54,7 @@ def transfer(arguments, current_run=1, all_at_once=False):
     target_dataset = load_dataset(arguments.target_task, arguments.nb_of_target_samples)
 
     # Get tensorflow training configuration
-    training_config = get_training_config()
+    training_config = get_training_config(learning_rate=2e-4, weight_decay=1e-6)
 
     # Building and compiling models
     source_model = build_and_compile_model(
