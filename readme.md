@@ -1,26 +1,8 @@
 # QUANTA: QUANtitative TrAnsferability
 
-## Submitted abstract to NIPS 2020
+## Paper in the proceedings of the 25th International Conference KES2021
 
-> The computationally expansive nature of Deep Neural Networks, along with their
-significant hunger for labeled data, can impair the overall performance of these
-models. Among other techniques, this challenge can be tackled by Transfer
-Learning, which consist in re-using the knowledge previously learned by a model:
-this method is widely used and has proven effective in enhancing the performance
-of models in low resources contexts. However, there are relatively few 
-contributions regarding the actual transferability of features in a deep 
-learning model. This paper presents QUANTA (QUANtitative TrAnsferability), 
-a method for quantifying the transferability of features of a given model. 
-A QUANTA is a 2-parameters layer added in a target model at the level at which 
-one wants to study the transferability of the corresponding layer level in a 
-source model. Data from the target domain being fed to both the source and the 
-target models, the parameters of the QUANTA layer are trained in such a way 
-that a mutually exclusive quantification occurs between the source model 
-(trained and frozen) and the (trainable) target model. The proposed approach 
-is evaluated on a set of experiments on a visual recognition task using 
-Convolutional Neural Networks. The results show that QUANTA are a promising 
-tool for quantifying the transferability of features of a source model, as well 
-as new way of assessing the quality of a transfer.
+> The computationally expensive nature of Deep Neural Networks, along with their significant hunger for labeled data, can impair the overall performance of these models. Among other techniques, this challenge can be tackled by Transfer Learning, which consists in re-using the knowledge previously learned by a model: this method is widely used and has proven effective in enhancing the performance of models in low resources contexts. However, there are relatively few contributions regarding the actual transferability of features in a deep learning model. This paper presents QUANTA (QUANtitative TrAnsferability), a method for quantifying the transferability of features of a given model. A QUANTA is a 2-parameters layer added in a target model at the level at which one wants to study the transferability of the corresponding layer in a source model. Data from the target domain being fed to both the source and the target models, the parameters of the QUANTA layer are trained in such a way that a mutually exclusive quantification occurs between the source model (trained and frozen) and the (trainable) target model. The proposed approach is evaluated on a set of experiments on a visual recognition task using Convolutional Neural Networks. The results show that QUANTA is a promising tool for quantifying the transferability of features of a source model, as well as a new way of assessing the quality of a transfer.
 
 ## Pre-requisite
 
@@ -96,7 +78,7 @@ When tensorflow displays the measured metrics, be carefull about the fact that i
 
 ## Determinism by seeding
 
-TODO: add a note related to loaded a saved target model
+Be careful that the states of the PRNG are different, and so the results are, when you reload a model to continue a training from when you just continue your training.
 
 ## License
 This project is licensed under the Mozilla Public Licence 2.0. See the ``LICENSE.txt``
