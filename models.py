@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 
-from quanta_layer import QuantaLayer
+from quanta.quanta_layer import QuantaLayer
 
 
 #################################################
@@ -146,15 +146,15 @@ def create_model(
             (outputs_of_block_source_layer != [] and (layer_to_transfer in (4, 5))):
         x = build_block(
             x,
-            512,
+            256,
             layer_to_transfer,
             [outputs_of_block_source_layer[4], outputs_of_block_source_layer[5]],
             all_at_once)
     else:
-        x = build_block(x, 512)
+        x = build_block(x, 256)
 
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(2048)(x)
+    x = tf.keras.layers.Dense(1024)(x)
     if (all_at_once and source_model is not None) or \
             (outputs_of_block_source_layer != [] and layer_to_transfer == 6):
         x = QuantaLayer('elu')([outputs_of_block_source_layer[6], x])
@@ -253,8 +253,8 @@ def build_and_compile_model(
     return model
 
 
-def load_target_model(model_path, model_name="target"):
-    """Load a saved target model."""
+def load_model(model_path, model_name):
+    """Load a saved model."""
 
     print("Loading " + model_name + " model : start")
     model = tf.keras.models.load_model(model_path)
